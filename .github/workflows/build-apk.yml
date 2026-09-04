@@ -26,7 +26,14 @@ jobs:
       # keep this file in sync. We regenerate it fresh on every build, then
       # patch in the AdMob App ID and INTERNET permission it needs.
       - name: Generate Android platform project
-        run: flutter create --platforms=android --org com.trungsmail --project-name word_search_vocab .
+        run: |
+          flutter create --platforms=android --org com.trungsmail --project-name word_search_vocab .
+          # `flutter create` also (re)writes test/widget_test.dart whenever
+          # that file is missing from the repo, regardless of --platforms —
+          # its boilerplate references a MyApp widget that doesn't exist in
+          # this project (the real app class is WordSearchApp), which broke
+          # the "Run tests" step below the first time this workflow ran.
+          rm -f test/widget_test.dart
 
       - name: Patch AndroidManifest.xml (AdMob + app label)
         env:

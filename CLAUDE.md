@@ -44,6 +44,18 @@ signing. See `build-apk.yml`'s inline comments for the exact why on each
 step — copied verbatim from the validated block-puzzle-app pattern, minus the
 Play Games Services steps (not needed here).
 
+**Gotcha that broke the very first CI run**: `flutter create .` also
+(re)writes `test/widget_test.dart` whenever that file is missing from the
+checkout, independent of the `--platforms` flag — its boilerplate `testWidgets`
+references a `MyApp` widget that doesn't exist in this project (the real root
+widget is `WordSearchApp`), so the regenerated file fails to compile and the
+`flutter test` step fails, skipping the build/upload steps after it. Deleted
+locally on 2026-09-03 but not guarded against in CI until the first push's
+run actually failed this way. Fixed by `rm -f test/widget_test.dart`
+immediately after the "Generate Android platform project" step. If a future
+`flutter create` invocation is ever added/changed in this workflow, re-check
+whether it still needs this same cleanup line.
+
 ## Scope decisions (v1)
 
 - **No sound.** Every sibling game bundles WAV/MP3 sound effects, but those
