@@ -25,6 +25,19 @@ class AdsService {
   Future<void> initialize() async {
     if (kIsWeb) return;
     await MobileAds.instance.initialize();
+    // Matches the "13+" target audience chosen for this app's Play Console
+    // listing (not child-directed): `maxAdContentRating: t` caps served ads
+    // at "Teen"-suitable content. `ageRestrictedTreatment` is deliberately
+    // left unset (its default, `unspecified`) rather than set to `.child` or
+    // `.teen` — those values *signal* child/teen ad treatment to AdMob
+    // (stricter serving rules), which is only correct for an app that
+    // actually targets under-18 users; this app's audience is general/13+,
+    // so no special age-restricted signal should be sent. Uses the modern
+    // `ageRestrictedTreatment` API, not the deprecated
+    // `tagForChildDirectedTreatment`/`tagForUnderAgeOfConsent` ints.
+    await MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(maxAdContentRating: MaxAdContentRating.t),
+    );
     _loadInterstitial();
   }
 

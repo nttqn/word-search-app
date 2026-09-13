@@ -30,10 +30,9 @@ flutter build apk --release    # debug-signed test APK
    `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` GitHub secrets so CI
    produces a real Play-Store-signable APK/AAB instead of a debug-signed
    test build.
-3. **App icon**: done — `assets/icon/icon.png` is a placeholder drawn with
-   PowerShell + System.Drawing (no source photo/logo was supplied);
-   `flutter_launcher_icons` regenerates every mipmap size in CI. Swap for
-   real branded art whenever one is available.
+3. **App icon & title art**: done — `assets/icon/icon.png` and
+   `assets/title/title.png` are the real "WordHunt - Tra Từ" branded art;
+   `flutter_launcher_icons` regenerates every mipmap size in CI.
 4. **Privacy policy**: not yet drafted — needed before a Play Store listing
    can go live (this app stores local scores/settings via
    `shared_preferences` and serves AdMob ads once real ad units are wired
@@ -45,3 +44,9 @@ flutter build apk --release    # debug-signed test APK
    generated IDs into `_androidLeaderboardIds`, and set the
    `PLAY_GAMES_APP_ID` GitHub secret. Until then the trophy button on each
    level card just shows "not available yet" — the game itself is unaffected.
+6. **Target audience**: code-side done — `AdsService.initialize()` sets
+   `maxAdContentRating: MaxAdContentRating.t` to match a **13+** audience
+   (not child-directed, avoiding Google Play's stricter Families policy).
+   Still need to actually select "13+" in the Play Console listing's own
+   "Target audience and content" section when that listing is created —
+   the code doesn't set that for you.

@@ -192,6 +192,26 @@ puzzle-app did once one exists; the `ADMOB_APP_ID` GitHub secret (manifest
 Application ID) is a separate value already wired into `build-apk.yml`.
 Interstitial shows roughly every other completed puzzle, not after every one.
 
+**Target audience / ad content rating**: `initialize()` calls
+`MobileAds.instance.updateRequestConfiguration(RequestConfiguration(
+maxAdContentRating: MaxAdContentRating.t))` right after `.initialize()`.
+Chosen 2026-09-13 to match a **13+** Play Console "Target audience"
+declaration (not child-directed) — declaring the app as directed at
+children under 13 would pull it under Google Play's much stricter Families
+policy (limits which ad formats/networks are even allowed, more review
+scrutiny), which doesn't fit this app: it has no content designed
+specifically for young children, and its Expert-level vocabulary is
+adult-level. `ageRestrictedTreatment` is deliberately left unset (its
+default, `unspecified`) rather than `.child`/`.teen` — those values actively
+*signal* child/teen ad treatment to AdMob (which changes ad serving rules),
+appropriate only for an app that actually targets under-18 users, not a
+general/13+ one. Uses the modern `ageRestrictedTreatment` API, not the
+deprecated `tagForChildDirectedTreatment`/`tagForUnderAgeOfConsent` ints
+`google_mobile_ads` still exposes for backward compatibility. **This is a
+code-level signal only** — still need to actually pick "13+" (or whatever is
+decided) in the Play Console listing's own "Target audience and content"
+section when that listing is created; the code doesn't set that for you.
+
 **Leaderboard (`lib/services/leaderboard_service.dart`)**: Google Play Games
 Services, one leaderboard per `VocabLevel` (scores aren't comparable across
 levels — different grid sizes/word counts — same reasoning `ScoreService`
