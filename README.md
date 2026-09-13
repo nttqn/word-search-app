@@ -21,11 +21,9 @@ flutter build apk --release    # debug-signed test APK
 
 ## Before publishing to the Play Store
 
-1. **AdMob**: not yet set up. `lib/services/ads_service.dart` uses Google's
-   public **test** ad unit IDs — this project has no AdMob account of its
-   own yet. Create one, swap in the real banner/interstitial ad unit IDs,
-   and set the `ADMOB_APP_ID` GitHub secret (manifest-level Application ID,
-   a separate value) before publishing.
+1. **AdMob**: done — real banner/interstitial ad unit IDs are set in
+   `lib/services/ads_service.dart`; the `ADMOB_APP_ID` GitHub secret (a
+   separate value from the ad unit IDs) is also set.
 2. **Release signing**: not yet set up. Set the `KEYSTORE_BASE64`,
    `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` GitHub secrets so CI
    produces a real Play-Store-signable APK/AAB instead of a debug-signed

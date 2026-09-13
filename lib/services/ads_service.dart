@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Wraps AdMob banner + interstitial ads. Uses Google's public **test** ad
-/// unit IDs for now (this project has no AdMob account of its own yet) —
-/// swap these for real ones the same way block-puzzle-app did once one
-/// exists. The `ADMOB_APP_ID` GitHub secret (manifest-level Application ID)
-/// is a separate value, patched in by build-apk.yml.
+/// Wraps AdMob banner + interstitial ads. Both ad unit IDs are now real
+/// (2026-09-13, this project's own AdMob account, publisher
+/// `9078637596840810` — same account as block-puzzle-app's, a separate app
+/// within it). The `ADMOB_APP_ID` GitHub secret (manifest-level Application
+/// ID) is a separate value, already set, patched in by build-apk.yml.
 ///
 /// `google_mobile_ads` only supports Android/iOS, so every entry point here
 /// is a no-op on web/desktop — keeps `flutter run -d chrome` usable for
@@ -15,9 +15,9 @@ class AdsService {
   static final AdsService instance = AdsService._();
 
   static const String bannerAdUnitId =
-      'ca-app-pub-3940256099942544/6300978111';
+      'ca-app-pub-9078637596840810/8684680480';
   static const String interstitialAdUnitId =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-9078637596840810/1161413688';
 
   InterstitialAd? _interstitialAd;
   int _puzzlesSinceInterstitial = 0;

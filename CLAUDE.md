@@ -8,8 +8,8 @@ A Flutter Android word-search game (`WordHunt - Tra Từ`), Vietnamese UI,
 built as an English vocabulary trainer for Vietnamese learners rather than a
 generic puzzle: finding a word in the grid reveals its Vietnamese meaning right
 underneath it in the clue list. AdMob banner + interstitial ads are wired in
-(currently Google's public **test** ad unit IDs — this project has no AdMob
-account of its own yet, unlike its siblings). A Play Games Services leaderboard
+with real ad unit IDs from the user's own AdMob account (set 2026-09-13). A
+Play Games Services leaderboard
 (one per level) is wired in code — see "Leaderboard" below — with real,
 functional leaderboard IDs from a Play Console project the user created
 2026-09-13. Sound effects (see "Sound" below) were
@@ -182,12 +182,12 @@ mandatory rule for every game in this series (see
 `[[feedback_back_button_pause]]`).
 
 **Ads (`lib/services/ads_service.dart`)**: same singleton/no-op-on-web pattern
-as every sibling, but with Google's public **test** ad unit IDs hardcoded
-rather than real ones — there's no AdMob account for this project yet. Swap
-in real IDs from this project's own AdMob account the same way block-
-puzzle-app did once one exists; the `ADMOB_APP_ID` GitHub secret (manifest
-Application ID) is a separate value already wired into `build-apk.yml`.
-Interstitial shows roughly every other completed puzzle, not after every one.
+as every sibling. Both ad unit IDs are now real (2026-09-13), from this
+project's own app within publisher `9078637596840810` — the same AdMob
+account block-puzzle-app uses, a separate app registered within it. The
+`ADMOB_APP_ID` GitHub secret (manifest Application ID, a separate value from
+either ad unit ID) is set, wired into `build-apk.yml`. Interstitial shows
+roughly every other completed puzzle, not after every one.
 
 **Target audience / ad content rating**: `initialize()` calls
 `MobileAds.instance.updateRequestConfiguration(RequestConfiguration(
