@@ -1,4 +1,4 @@
-# Word Search - Học Từ Vựng
+# WordHunt - Tra Từ
 
 A Flutter Android word-search puzzle game built as an English vocabulary
 trainer for Vietnamese learners: find a word in the letter grid and its

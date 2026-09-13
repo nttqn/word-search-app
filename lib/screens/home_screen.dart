@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Icon(Icons.search, color: Colors.white, size: 48),
               const SizedBox(height: 8),
               const Text(
-                'Word Search',
+                'WordHunt',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Text(
-                'Học Từ Vựng Tiếng Anh',
+                'Tra Từ - Học Tiếng Anh',
                 style: TextStyle(color: Colors.white70, fontSize: 15),
               ),
               const SizedBox(height: 20),

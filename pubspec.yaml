@@ -1,5 +1,5 @@
 name: word_search_vocab
-description: "Word Search - Học Từ Vựng: an English vocabulary word-search game."
+description: "WordHunt - Tra Từ: an English vocabulary word-search game."
 publish_to: 'none'
 version: 1.0.0+1
 

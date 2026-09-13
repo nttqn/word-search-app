@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## What this is
 
-A Flutter Android word-search game (`Word Search - Học Từ Vựng`), Vietnamese UI,
+A Flutter Android word-search game (`WordHunt - Tra Từ`), Vietnamese UI,
 built as an English vocabulary trainer for Vietnamese learners rather than a
 generic puzzle: finding a word in the grid reveals its Vietnamese meaning right
 underneath it in the clue list. AdMob banner + interstitial ads are wired in
@@ -16,7 +16,17 @@ project exists for this app yet. No sound — deliberately scoped out for v1
 (see "Scope decisions" below).
 
 Dart package name: `word_search_vocab`. Android application ID:
-`com.trungsmail.word_search_vocab`.
+`com.trungsmail.word_search_vocab`. Both deliberately **not** renamed to
+match the "WordHunt - Tra Từ" display name (chosen 2026-09-13, was
+"Word Search - Học Từ Vựng") — those are internal identifiers, not the
+user-visible name, and changing either is a much bigger/riskier operation
+(every `package:word_search_vocab/...` import; the Play Store listing
+identity, if this were ever published under the old ID) than the
+display-name change that was actually asked for. Same precedent as
+block-puzzle-app's own package-name-vs-display-name split. The display name
+lives in three places, all kept in sync: `MaterialApp.title` (`lib/main.dart`),
+the home screen's title `Text` (`lib/screens/home_screen.dart`), and the
+Android `android:label` patched in by `build-apk.yml`.
 
 There is no native `android/` (or `ios/`/`web/`) directory committed — see
 "Android project is generated, not committed" below, same pattern as this

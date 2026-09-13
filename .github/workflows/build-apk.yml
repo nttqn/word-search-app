@@ -48,7 +48,7 @@ jobs:
           fi
           sed -i "s#<application#<uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application#" "$MANIFEST"
           sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
-          sed -i -E 's/android:label="[^"]*"/android:label="Word Search - Học Từ Vựng"/g' "$MANIFEST"
+          sed -i -E 's/android:label="[^"]*"/android:label="WordHunt - Tra Từ"/g' "$MANIFEST"
           # Play Games Services needs this meta-data to sign in / submit
           # scores at all. There's no universal test ID like AdMob's, so
           # when the secret isn't set the leaderboard silently stays

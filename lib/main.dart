@@ -15,7 +15,7 @@ class WordSearchApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Word Search - Học Từ Vựng',
+      title: 'WordHunt - Tra Từ',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF3D8BFD),
