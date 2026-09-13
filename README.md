@@ -33,10 +33,12 @@ flutter build apk --release    # debug-signed test APK
 3. **App icon & title art**: done — `assets/icon/icon.png` and
    `assets/title/title.png` are the real "WordHunt - Tra Từ" branded art;
    `flutter_launcher_icons` regenerates every mipmap size in CI.
-4. **Privacy policy**: not yet drafted — needed before a Play Store listing
-   can go live (this app stores local scores/settings via
-   `shared_preferences` and serves AdMob ads once real ad units are wired
-   in).
+4. **Privacy policy**: drafted at `docs/privacy.html` (covers local score
+   storage, Play Games Services sign-in, and AdMob). Enable GitHub Pages for
+   this repo (Settings → Pages → Source: "Deploy from a branch" → branch
+   `main`, folder `/docs`) to get a public URL — Play Console requires one
+   before a listing can go live. Once enabled, it's
+   `https://nttqn.github.io/word-search-app/privacy.html`.
 5. **Leaderboard**: not yet functional. `lib/services/leaderboard_service.dart`
    is wired for Google Play Games Services (one leaderboard per difficulty
    level), but the leaderboard IDs are still placeholders — create a Play
