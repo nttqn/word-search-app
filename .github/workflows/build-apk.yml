@@ -27,7 +27,7 @@ jobs:
       # patch in the AdMob App ID and INTERNET permission it needs.
       - name: Generate Android platform project
         run: |
-          flutter create --platforms=android --org com.trungsmail --project-name word_search_vocab .
+          flutter create --platforms=android --org com.trungsmail --project-name wordhunt .
           # `flutter create` also (re)writes test/widget_test.dart whenever
           # that file is missing from the repo, regardless of --platforms —
           # its boilerplate references a MyApp widget that doesn't exist in
@@ -157,13 +157,13 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: word-search-vocab-release-apk
+          name: wordhunt-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
       - name: Upload App Bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: word-search-vocab-release-aab
+          name: wordhunt-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30

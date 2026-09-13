@@ -1,10 +1,10 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:word_search_vocab/data/word_banks.dart';
-import 'package:word_search_vocab/game/grid_generator.dart';
-import 'package:word_search_vocab/game/word_search_engine.dart';
-import 'package:word_search_vocab/models/level.dart';
+import 'package:wordhunt/data/word_banks.dart';
+import 'package:wordhunt/game/grid_generator.dart';
+import 'package:wordhunt/game/word_search_engine.dart';
+import 'package:wordhunt/models/level.dart';
 
 void main() {
   group('WordSearchEngine', () {

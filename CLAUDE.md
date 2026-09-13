@@ -15,18 +15,25 @@ functional: the leaderboard IDs are still placeholders since no Play Console
 project exists for this app yet. No sound — deliberately scoped out for v1
 (see "Scope decisions" below).
 
-Dart package name: `word_search_vocab`. Android application ID:
-`com.trungsmail.word_search_vocab`. Both deliberately **not** renamed to
-match the "WordHunt - Tra Từ" display name (chosen 2026-09-13, was
-"Word Search - Học Từ Vựng") — those are internal identifiers, not the
-user-visible name, and changing either is a much bigger/riskier operation
-(every `package:word_search_vocab/...` import; the Play Store listing
-identity, if this were ever published under the old ID) than the
-display-name change that was actually asked for. Same precedent as
-block-puzzle-app's own package-name-vs-display-name split. The display name
-lives in three places, all kept in sync: `MaterialApp.title` (`lib/main.dart`),
-the home screen's title `Text` (`lib/screens/home_screen.dart`), and the
-Android `android:label` patched in by `build-apk.yml`.
+Dart package name: `wordhunt` (every `package:wordhunt/...` import in
+`test/`; `lib/` itself only ever used relative imports, so none of those
+needed touching). Android application ID: `com.trungsmail.wordhunt`
+(from `--org com.trungsmail --project-name wordhunt` in `build-apk.yml`'s
+`flutter create` step). **Renamed 2026-09-13** from `word_search_vocab` /
+`com.trungsmail.word_search_vocab` — initially deliberately left unrenamed
+when the display name changed (same precedent as block-puzzle-app's
+package-name-vs-display-name split: those are internal identifiers, not the
+user-visible name), but the user later asked for this rename explicitly, and
+doing it now — before any Play Store listing exists under the old ID — is
+the safe time to do it; doing it *after* a real listing exists would create
+an entirely different app rather than update the existing one. The Dart
+class name `WordSearchApp` (`lib/main.dart`) was **not** renamed to match —
+same reasoning as before, it's an internal identifier the user didn't ask
+about, not the package name itself. The display name ("WordHunt - Tra Từ",
+a separate thing from either identifier above) lives in three places, all
+kept in sync: `MaterialApp.title` (`lib/main.dart`), the home screen's title
+image (`assets/title/title.png`, via `lib/screens/home_screen.dart`), and
+the Android `android:label` patched in by `build-apk.yml`.
 
 There is no native `android/` (or `ios/`/`web/`) directory committed — see
 "Android project is generated, not committed" below, same pattern as this
