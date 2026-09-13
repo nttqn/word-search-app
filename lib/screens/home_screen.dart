@@ -5,7 +5,9 @@ import '../models/level.dart';
 import '../services/ads_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/score_service.dart';
+import '../services/sound_service.dart';
 import '../widgets/app_background.dart';
+import '../widgets/sound_toggle_button.dart';
 import 'game_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openLevel(VocabLevel level) async {
+    SoundService.instance.play(SoundEffect.confirm);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => GameScreen(level: level)),
     );
@@ -49,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openLeaderboard(VocabLevel level) async {
+    SoundService.instance.play(SoundEffect.confirm);
     final opened = await LeaderboardService.showLeaderboard(level);
     if (!mounted) return;
     if (!opened) {
@@ -70,35 +74,44 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       body: AppBackground(
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              const SizedBox(height: 16),
-              Image.asset('assets/title/title.png', width: 320),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  children: [
-                    for (final level in VocabLevel.values)
-                      _LevelCard(
-                        level: level,
-                        bestScore: _bestScores[level] ?? 0,
-                        onTap: () => _openLevel(level),
-                        onLeaderboardTap: () => _openLeaderboard(level),
+              Column(
+                children: [
+                  const SizedBox(height: 16),
+                  Image.asset('assets/title/title.png', width: 320),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
                       ),
-                  ],
-                ),
+                      children: [
+                        for (final level in VocabLevel.values)
+                          _LevelCard(
+                            level: level,
+                            bestScore: _bestScores[level] ?? 0,
+                            onTap: () => _openLevel(level),
+                            onLeaderboardTap: () => _openLeaderboard(level),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (_banner != null)
+                    SizedBox(
+                      width: _banner!.size.width.toDouble(),
+                      height: _banner!.size.height.toDouble(),
+                      child: AdWidget(ad: _banner!),
+                    ),
+                  const SizedBox(height: 8),
+                ],
               ),
-              if (_banner != null)
-                SizedBox(
-                  width: _banner!.size.width.toDouble(),
-                  height: _banner!.size.height.toDouble(),
-                  child: AdWidget(ad: _banner!),
-                ),
-              const SizedBox(height: 8),
+              const Positioned(
+                top: 4,
+                right: 4,
+                child: SoundToggleButton(),
+              ),
             ],
           ),
         ),

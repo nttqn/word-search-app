@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../game/grid_generator.dart';
 import '../game/word_search_engine.dart';
+import '../services/sound_service.dart';
 
 const List<Color> _foundWordColors = [
   Color(0xFFE85D9C),
@@ -152,10 +153,12 @@ class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
     final scoreBefore = widget.engine.score;
     final match = widget.engine.trySelect(_dragPath);
     if (match != null) {
+      SoundService.instance.play(SoundEffect.correct);
       _addScorePopup(match, widget.engine.score - scoreBefore);
       widget.onWordFound(match);
       _resetDrag();
     } else {
+      SoundService.instance.play(SoundEffect.wrong);
       setState(() => _dragWasWrong = true);
       Future.delayed(const Duration(milliseconds: 250), () {
         if (mounted) _resetDrag();

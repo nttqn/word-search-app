@@ -10,8 +10,10 @@ import '../models/level.dart';
 import '../services/ads_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/score_service.dart';
+import '../services/sound_service.dart';
 import '../widgets/app_background.dart';
 import '../widgets/grid_widget.dart';
+import '../widgets/sound_toggle_button.dart';
 import '../widgets/word_list_widget.dart';
 
 class GameScreen extends StatefulWidget {
@@ -58,6 +60,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _onPuzzleComplete() async {
+    SoundService.instance.play(SoundEffect.win);
     await ScoreService.instance.saveBest(widget.level, _engine.score);
     unawaited(LeaderboardService.submitScore(widget.level, _engine.score));
     AdsService.instance.maybeShowInterstitialAfterPuzzle();
@@ -69,10 +72,12 @@ class _GameScreenState extends State<GameScreen> {
         score: _engine.score,
         elapsedSeconds: _engine.elapsedSeconds,
         onNewPuzzle: () {
+          SoundService.instance.play(SoundEffect.confirm);
           Navigator.of(ctx).pop();
           setState(() => _engine.start());
         },
         onHome: () {
+          SoundService.instance.play(SoundEffect.back);
           Navigator.of(ctx).pop();
           Navigator.of(context).pop();
         },
@@ -81,6 +86,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onHint() {
+    SoundService.instance.play(SoundEffect.hint);
     _engine.useHint();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) _engine.clearHint();
@@ -88,6 +94,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _onBackPressed() async {
+    SoundService.instance.play(SoundEffect.back);
     if (_engine.isComplete) {
       Navigator.of(context).pop();
       return;
@@ -101,11 +108,17 @@ class _GameScreenState extends State<GameScreen> {
         content: Text('Điểm hiện tại: ${_engine.score}'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () {
+              SoundService.instance.play(SoundEffect.back);
+              Navigator.of(ctx).pop(true);
+            },
             child: const Text('Về trang chủ'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () {
+              SoundService.instance.play(SoundEffect.back);
+              Navigator.of(ctx).pop(false);
+            },
             child: const Text('Tiếp tục'),
           ),
         ],
@@ -217,6 +230,7 @@ class _Hud extends StatelessWidget {
                   ],
                 ),
               ),
+              const SoundToggleButton(),
             ],
           ),
         );

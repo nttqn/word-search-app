@@ -13,6 +13,7 @@ dependencies:
   google_mobile_ads: ^9.0.0
   shared_preferences: ^2.2.3
   games_services: ^5.3.0
+  flame_audio: ^2.12.2
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,12 @@ flutter:
   assets:
     - assets/icon/icon.png
     - assets/title/title.png
+    - assets/audio/sfx_menu_confirm.wav
+    - assets/audio/sfx_menu_back.wav
+    - assets/audio/sfx_hint.wav
+    - assets/audio/sfx_correct.wav
+    - assets/audio/sfx_wrong.wav
+    - assets/audio/m_win.mp3
 
 flutter_launcher_icons:
   android: true

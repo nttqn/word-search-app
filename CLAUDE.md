@@ -12,8 +12,9 @@ underneath it in the clue list. AdMob banner + interstitial ads are wired in
 account of its own yet, unlike its siblings). A Play Games Services leaderboard
 (one per level) is wired in code — see "Leaderboard" below — but not yet
 functional: the leaderboard IDs are still placeholders since no Play Console
-project exists for this app yet. No sound — deliberately scoped out for v1
-(see "Scope decisions" below).
+project exists for this app yet. Sound effects (see "Sound" below) were
+added 2026-09-13 once the user supplied real WAV/MP3 files — v1 originally
+shipped without any, unlike its siblings.
 
 Dart package name: `wordhunt` (every `package:wordhunt/...` import in
 `test/`; `lib/` itself only ever used relative imports, so none of those
@@ -78,10 +79,6 @@ whether it still needs this same cleanup line.
 
 ## Scope decisions (v1)
 
-- **No sound.** Every sibling game bundles WAV/MP3 sound effects, but those
-  came from user-supplied audio or ffmpeg-based generation — neither is
-  available for this project, and none was requested. Can be added later the
-  same way block-puzzle-app added its leaderboard after the fact.
 - **No bespoke background *image*.** `AppBackground` (see "Icon & title art"
   below) is still a plain gradient `Container`, not `Image.asset` — its
   colors are now sampled from the real title art, but a full illustrated
@@ -233,6 +230,60 @@ a Play Console project for this app, create 4 leaderboards (one per level),
 paste their generated IDs into `_androidLeaderboardIds`, and set the
 `PLAY_GAMES_APP_ID` GitHub secret (patched into the manifest by
 `build-apk.yml`, same mechanism as `ADMOB_APP_ID`).
+
+**Sound (`lib/services/sound_service.dart`)**: `flame_audio` + `AudioPool`,
+same pattern as block-puzzle-app/`[[project_dino_egg_shooter]]` — `sound_src/`
+holds every source file the user supplied (WAV/MP3), `assets/audio/` holds
+the bundled copies actually declared in `pubspec.yaml` (keep both in sync if
+a sound is ever added/replaced; no build step copies one to the other).
+`SoundEffect` enum values map 1:1 to trigger points: `confirm` fires from
+`HomeScreen._openLevel`/`_openLeaderboard` and the completion dialog's
+"Puzzle mới" button; `back` fires from `GameScreen._onBackPressed` (the
+AppBar back arrow itself) and both pause-dialog buttons ("Tiếp tục" *and*
+"Về trang chủ" — grouped under the same effect per the user's own request)
+and the completion dialog's "Về trang chủ"; `hint` fires from `_onHint`;
+`correct`/`wrong` fire from `GridWidget._onEnd`, the same branch that
+already tracked a match vs. a failed selection for the score popup /
+red-flash effects, so no new state was needed to know which to play; `win`
+fires from `_onPuzzleComplete`, right where the completion dialog is about
+to show. **No `gameOver` effect** — unlike this series' other games,
+`WordSearchEngine` has no lose condition at all (no timer that fails a
+puzzle, no penalty for running out of hints), only a win. The user was
+asked directly what a "gameover" sound should map to given that, and chose
+to leave it out entirely rather than attach it to an event that isn't
+really a failure (e.g. quitting mid-puzzle) — `m_failed.mp3` stays in
+`sound_src/` unbundled, ready to wire up if a timed/lose mode is ever
+added, but `SoundEffect` has no corresponding value for it today. `init()`
+is fired **unawaited** from `main()`, each pool creation individually
+wrapped in try/catch + `.timeout(5s)` — this exact pattern exists because of
+a real incident in `[[project_number_master_app]]` where an unguarded
+`FlameAudio.createPool()` Future never resolved on web, hanging the entire
+app before its first frame; do not simplify this back to a bare `await`.
+Every `play()` call is `_pools[effect]?.start()` — a safe no-op if that pool
+never finished loading (or on `flutter test`, where no plugin is ever
+registered at all, so `_pools` just stays empty — this is *why* the engine's
+own unit tests never needed any audio mocking despite exercising
+`trySelect`/`useHint` directly; check this stays true before adding new
+sound trigger points inside engine-adjacent code). **Known web-only
+limitation** (same as documented for block-puzzle-app): `flutter run -d
+chrome` throws a console `MissingPluginException(...
+audioplayers.global/events ...)` after `SoundService.init()` runs, because
+`audioplayers`' web implementation doesn't support the global event channel
+`flame_audio`'s `AudioPool` relies on internally — does not crash or block
+anything, just means sound can only be verified for real on an actual
+Android build, not the web preview used for the rest of this project's UI
+verification.
+
+**Sound toggle** (`lib/widgets/sound_toggle_button.dart`, a
+`SoundToggleButton` shared by `HomeScreen` and `GameScreen`'s HUD):
+reflects `SoundService.instance.enabledNotifier` via `ValueListenableBuilder`,
+calls `.toggle()` (flips the notifier + persists to `shared_preferences`) on
+tap. `HomeScreen` has no `AppBar` (the title is `assets/title/title.png`
+sitting directly in a `Column`), so the toggle is placed via a `Positioned`
+top-right corner over a `Stack` wrapping that `Column`, rather than in an
+`actions:` list the way block-puzzle-app's `AppBar`-based screens do it.
+`GameScreen` places it as the last child in its `_Hud` `Row`, after the
+stats `Wrap`.
 
 **Icon & title art** (`assets/icon/icon.png`, `assets/title/title.png`):
 real user-supplied branded art, replacing the original PowerShell-drawn
