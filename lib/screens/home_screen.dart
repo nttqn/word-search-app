@@ -72,22 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 24),
-              const Icon(Icons.search, color: Colors.white, size: 48),
+              const SizedBox(height: 16),
+              Image.asset('assets/title/title.png', width: 320),
               const SizedBox(height: 8),
-              const Text(
-                'WordHunt',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                'Tra Từ - Học Tiếng Anh',
-                style: TextStyle(color: Colors.white70, fontSize: 15),
-              ),
-              const SizedBox(height: 20),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(

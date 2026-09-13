@@ -75,12 +75,11 @@ whether it still needs this same cleanup line.
   came from user-supplied audio or ffmpeg-based generation — neither is
   available for this project, and none was requested. Can be added later the
   same way block-puzzle-app added its leaderboard after the fact.
-- **No bespoke background art.** `AppBackground` is a plain gradient
-  `Container`, not `Image.asset`. Generating one needs ImageMagick/a real
-  image tool this machine doesn't have (see `[[user_dev_machine_tooling]]`) —
-  the icon (below) was small enough to hand-draw with
-  PowerShell+System.Drawing primitives, but a full illustrated background
-  is not.
+- **No bespoke background *image*.** `AppBackground` (see "Icon & title art"
+  below) is still a plain gradient `Container`, not `Image.asset` — its
+  colors are now sampled from the real title art, but a full illustrated
+  background image itself would need ImageMagick/a real image tool this
+  machine doesn't have (see `[[user_dev_machine_tooling]]`).
 
 ## Architecture
 
@@ -151,6 +150,21 @@ palette keyed by the word's index in `grid.placedWords`, recomputed each
 build — cheap at ≤12 words, so no cached state needed); a wrong release
 briefly flashes the dragged path red (250ms, self-clearing) before resetting.
 
+**"+N" score popup** (`_GridWidgetState`, `_ScorePopup`/`_addScorePopup`/
+`_buildPopup`): on a correct release, `_onEnd` diffs `engine.score` before
+vs. after calling `trySelect` — rather than recomputing "word length × 10"
+here too — specifically so the popup automatically includes the one-time
+completion time-bonus when the match also happens to finish the puzzle,
+without this widget needing to duplicate that formula (see the engine's
+scoring note above). Each popup gets its **own** `AnimationController`
+(`_GridWidgetState` uses `TickerProviderStateMixin`, not
+`SingleTickerProviderStateMixin`, specifically so more than one can be
+in flight — back-to-back fast finds each show their own rising "+N" instead
+of one clobbering another, same reasoning as block-puzzle-app's
+`_activePopups` list), rendered at the midpoint of the matched word's cells,
+rising ~46px and fading out over the animation's last 40% before removing
+itself from `_popups` in `whenComplete`.
+
 **`lib/widgets/word_list_widget.dart`**: the actual teaching surface — the
 English word is always visible as the clue (matching genre convention), and
 finding it reveals `meaningVi` right underneath with a strikethrough on the
@@ -193,10 +207,29 @@ paste their generated IDs into `_androidLeaderboardIds`, and set the
 `PLAY_GAMES_APP_ID` GitHub secret (patched into the manifest by
 `build-apk.yml`, same mechanism as `ADMOB_APP_ID`).
 
-**Icon** (`assets/icon/icon.png`): a from-scratch PowerShell + System.Drawing
-placeholder (gradient background, a white magnifying-glass outline with a "W"
-centered inside the lens) — no source photo/logo was supplied for this
-project, unlike siblings whose icons started from a user-provided asset.
-Simple enough (a few `DrawEllipse`/`DrawLine`/`DrawString` calls) that no
-background-removal or bounding-box-crop work was needed, unlike the more
-involved icon-art pipelines documented in `[[project_block_puzzle_app]]`.
+**Icon & title art** (`assets/icon/icon.png`, `assets/title/title.png`):
+real user-supplied branded art, replacing the original PowerShell-drawn
+magnifying-glass placeholder icon on 2026-09-13 — both are the letter-tile
+"WordHunt / Tra Từ" logo (colorful cartoon alphabet blocks around a
+magnifying-glass wordmark), the icon being the same art cropped to a square
+with a baked-in gold rounded-corner border. Used directly with no editing
+needed (no background removal / bounding-box crop, unlike the earlier
+placeholder or the more involved icon-art pipelines documented in
+`[[project_block_puzzle_app]]`) since both files arrived already
+launcher/banner-ready. `title.png` is shown on `HomeScreen` via
+`Image.asset('assets/title/title.png', width: 320)`, replacing the previous
+plain-text "WordHunt" / "Tra Từ - Học Tiếng Anh" title+subtitle.
+
+**`title.png`'s alpha channel fades toward its edges** (confirmed via a
+PowerShell/System.Drawing pixel probe: corner alpha ~13-29, center-of-logo
+alpha ~250) — it's a soft radial glow, not a hard-edged rectangle, so it's
+designed to sit on a matching blue field rather than needing a transparent
+background of its own. This is *why* `AppBackground`'s gradient was changed
+from the original flat dark navy (`0xFF123B57`→`0xFF0B2436`) to colors
+sampled from the art's own bright-center/darker-edge blue tones
+(`0xFF3FB6F0`→`0xFF0B4E96`→`0xFF063867`, weighted mostly toward the darker
+end via `stops: [0.0, 0.35, 1.0]` so white text elsewhere on the page —
+word list, HUD, buttons — keeps enough contrast; only a bright accent
+right at the top where the title sits) — without this change the image's
+faded edges would blend into a mismatched dark background instead of the
+bright sky-blue the art was actually drawn against.

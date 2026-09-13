@@ -36,12 +36,13 @@ class GridWidget extends StatefulWidget {
   State<GridWidget> createState() => _GridWidgetState();
 }
 
-class _GridWidgetState extends State<GridWidget> {
+class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
   final GlobalKey _boardKey = GlobalKey();
   double _cellSize = 0;
   Cell? _startCell;
   List<Cell> _dragPath = const [];
   bool _dragWasWrong = false;
+  final List<_ScorePopup> _popups = [];
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +98,7 @@ class _GridWidgetState extends State<GridWidget> {
                             dragWasWrong: _dragWasWrong,
                           ),
                         ),
+                    for (final popup in _popups) _buildPopup(popup),
                   ],
                 ),
               ),
@@ -143,8 +145,14 @@ class _GridWidgetState extends State<GridWidget> {
       _resetDrag();
       return;
     }
+    // Diffing the engine's score before/after (rather than recomputing
+    // "word length * 10" here too) means this popup automatically shows the
+    // one-time completion time-bonus folded in when the match also finishes
+    // the puzzle, without this widget needing to know that formula at all.
+    final scoreBefore = widget.engine.score;
     final match = widget.engine.trySelect(_dragPath);
     if (match != null) {
+      _addScorePopup(match, widget.engine.score - scoreBefore);
       widget.onWordFound(match);
       _resetDrag();
     } else {
@@ -155,7 +163,74 @@ class _GridWidgetState extends State<GridWidget> {
     }
   }
 
+  void _addScorePopup(PlacedWord match, int value) {
+    if (value <= 0) return;
+    final rows = match.cells.map((c) => c.row);
+    final cols = match.cells.map((c) => c.col);
+    final midRow = rows.reduce((a, b) => a + b) / match.cells.length;
+    final midCol = cols.reduce((a, b) => a + b) / match.cells.length;
+    final anchor = Offset(
+      (midCol + 0.5) * _cellSize,
+      (midRow + 0.5) * _cellSize,
+    );
+
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    late final _ScorePopup popup;
+    popup = _ScorePopup(value: value, anchor: anchor, controller: controller);
+    setState(() => _popups.add(popup));
+    controller.forward().whenComplete(() {
+      controller.dispose();
+      if (!mounted) return;
+      setState(() => _popups.remove(popup));
+    });
+  }
+
+  Widget _buildPopup(_ScorePopup popup) {
+    return AnimatedBuilder(
+      animation: popup.controller,
+      builder: (context, _) {
+        final t = popup.controller.value;
+        final rise = Curves.easeOut.transform(t) * 46;
+        final opacity = t < 0.6 ? 1.0 : (1 - (t - 0.6) / 0.4).clamp(0.0, 1.0);
+        return Positioned(
+          left: popup.anchor.dx - 30,
+          top: popup.anchor.dy - 14 - rise,
+          width: 60,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: opacity,
+              child: Text(
+                '+${popup.value}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  color: Color(0xFFFFD54F),
+                  shadows: [
+                    Shadow(color: Colors.black87, blurRadius: 3, offset: Offset(1, 1)),
+                    Shadow(color: Colors.black87, blurRadius: 3),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _onCancel() => _resetDrag();
+
+  @override
+  void dispose() {
+    for (final popup in _popups) {
+      popup.controller.dispose();
+    }
+    super.dispose();
+  }
 
   void _resetDrag() {
     if (!mounted) return;
@@ -205,6 +280,22 @@ class _GridWidgetState extends State<GridWidget> {
       (k) => Cell(start.row + stepR * k, start.col + stepC * k),
     );
   }
+}
+
+/// A transient "+N" floating score effect shown at the midpoint of a
+/// just-found word, rising and fading out over 900ms then removing itself
+/// (see `_addScorePopup`'s `whenComplete`). Multiple can be alive at once —
+/// each drag-release gets its own controller/entry rather than one shared
+/// slot, so back-to-back finds each show their own number.
+class _ScorePopup {
+  final int value;
+  final Offset anchor;
+  final AnimationController controller;
+  _ScorePopup({
+    required this.value,
+    required this.anchor,
+    required this.controller,
+  });
 }
 
 class _CellView extends StatelessWidget {
