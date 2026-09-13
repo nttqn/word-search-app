@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -6,6 +8,7 @@ import '../game/grid_generator.dart';
 import '../game/word_search_engine.dart';
 import '../models/level.dart';
 import '../services/ads_service.dart';
+import '../services/leaderboard_service.dart';
 import '../services/score_service.dart';
 import '../widgets/app_background.dart';
 import '../widgets/grid_widget.dart';
@@ -31,6 +34,7 @@ class _GameScreenState extends State<GameScreen> {
       bank: WordBanks.byLevel[widget.level]!,
     )..start();
     _loadBanner();
+    unawaited(LeaderboardService.signIn());
   }
 
   void _loadBanner() {
@@ -55,6 +59,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _onPuzzleComplete() async {
     await ScoreService.instance.saveBest(widget.level, _engine.score);
+    unawaited(LeaderboardService.submitScore(widget.level, _engine.score));
     AdsService.instance.maybeShowInterstitialAfterPuzzle();
     if (!mounted) return;
     await showDialog<void>(

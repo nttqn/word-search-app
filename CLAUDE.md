@@ -9,8 +9,11 @@ built as an English vocabulary trainer for Vietnamese learners rather than a
 generic puzzle: finding a word in the grid reveals its Vietnamese meaning right
 underneath it in the clue list. AdMob banner + interstitial ads are wired in
 (currently Google's public **test** ad unit IDs — this project has no AdMob
-account of its own yet, unlike its siblings). No leaderboard, no sound —
-deliberately scoped out for v1 (see "Scope decisions" below).
+account of its own yet, unlike its siblings). A Play Games Services leaderboard
+(one per level) is wired in code — see "Leaderboard" below — but not yet
+functional: the leaderboard IDs are still placeholders since no Play Console
+project exists for this app yet. No sound — deliberately scoped out for v1
+(see "Scope decisions" below).
 
 Dart package name: `word_search_vocab`. Android application ID:
 `com.trungsmail.word_search_vocab`.
@@ -68,9 +71,6 @@ whether it still needs this same cleanup line.
   the icon (below) was small enough to hand-draw with
   PowerShell+System.Drawing primitives, but a full illustrated background
   is not.
-- **No Play Games leaderboard.** Best score/level is local-only via
-  `shared_preferences` (`ScoreService`), same mechanism block-puzzle-app used
-  before it added a leaderboard — this project just hasn't taken that step.
 
 ## Architecture
 
@@ -160,6 +160,28 @@ in real IDs from this project's own AdMob account the same way block-
 puzzle-app did once one exists; the `ADMOB_APP_ID` GitHub secret (manifest
 Application ID) is a separate value already wired into `build-apk.yml`.
 Interstitial shows roughly every other completed puzzle, not after every one.
+
+**Leaderboard (`lib/services/leaderboard_service.dart`)**: Google Play Games
+Services, one leaderboard per `VocabLevel` (scores aren't comparable across
+levels — different grid sizes/word counts — same reasoning `ScoreService`
+already uses for tracking "best" per level). Android-only, unlike
+block-puzzle-app's dual-platform (Android + iOS/Game Center) version of this
+same class, which this file is modeled on — this project has no iOS target.
+All four `_androidLeaderboardIds` values are still `REPLACE_...` placeholders
+(no Play Console project exists for this app yet); `_isConfigured` gates
+every real call on them, so every call safely no-ops until real IDs are set —
+the game stays fully playable, `ScoreService`'s local "Điểm cao: N" keeps
+working exactly as before, and the trophy button on each level card falls
+back to a "Bảng xếp hạng chưa khả dụng." SnackBar. `GameScreen.initState()`
+calls `LeaderboardService.signIn()` unawaited (mirrors block-puzzle-app's
+`signIn()`-moved-out-of-the-engine precedent, for the same reason: keeps a
+future engine-level test from ever triggering a real platform-channel call).
+`_onPuzzleComplete()` calls `submitScore(level, score)` unawaited right next
+to the existing `ScoreService.saveBest` call. To make this functional: create
+a Play Console project for this app, create 4 leaderboards (one per level),
+paste their generated IDs into `_androidLeaderboardIds`, and set the
+`PLAY_GAMES_APP_ID` GitHub secret (patched into the manifest by
+`build-apk.yml`, same mechanism as `ADMOB_APP_ID`).
 
 **Icon** (`assets/icon/icon.png`): a from-scratch PowerShell + System.Drawing
 placeholder (gradient background, a white magnifying-glass outline with a "W"

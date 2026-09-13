@@ -38,3 +38,10 @@ flutter build apk --release    # debug-signed test APK
    can go live (this app stores local scores/settings via
    `shared_preferences` and serves AdMob ads once real ad units are wired
    in).
+5. **Leaderboard**: not yet functional. `lib/services/leaderboard_service.dart`
+   is wired for Google Play Games Services (one leaderboard per difficulty
+   level), but the leaderboard IDs are still placeholders — create a Play
+   Console project for this app, create 4 leaderboards there, paste the
+   generated IDs into `_androidLeaderboardIds`, and set the
+   `PLAY_GAMES_APP_ID` GitHub secret. Until then the trophy button on each
+   level card just shows "not available yet" — the game itself is unaffected.
