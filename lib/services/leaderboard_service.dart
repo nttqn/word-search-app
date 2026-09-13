@@ -10,23 +10,23 @@ import '../models/level.dart';
 /// target (see CLAUDE.md), unlike block-puzzle-app's dual-platform version
 /// of this same class, which this file is otherwise modeled on.
 ///
-/// The IDs below are **placeholders** — no Play Console project exists for
-/// this app yet. `_isConfigured` gates every real call on them having been
-/// replaced with real Play-Console-generated IDs, so shipping with
-/// placeholders is safe: sign-in/submit/show all silently no-op instead of
-/// failing loudly, exactly like a failed ad load never blocks gameplay in
-/// `AdsService`. Every call is also wrapped in try/catch + a `.timeout(...)`
-/// — `GameAuth.signIn()` is a plain `MethodChannel.invokeMethod` that never
-/// completes (not even with an error) when no native handler is attached,
-/// so an unguarded call could hang the caller forever; `Future.timeout` uses
-/// a real `Timer`, which `flutter_test`'s fake clock can resolve
-/// deterministically if a future test ever exercises this from a widget.
+/// All four leaderboard IDs are now real, from a Play Console project the
+/// user created for this app (2026-09-13) — `_isConfigured`'s `REPLACE_`
+/// check now always passes, but is kept as-is rather than removed: it's
+/// still the correct guard if this project's IDs are ever reset/cleared, and
+/// costs nothing to leave in place. Every call is wrapped in try/catch + a
+/// `.timeout(...)` — `GameAuth.signIn()` is a plain
+/// `MethodChannel.invokeMethod` that never completes (not even with an
+/// error) when no native handler is attached, so an unguarded call could
+/// hang the caller forever; `Future.timeout` uses a real `Timer`, which
+/// `flutter_test`'s fake clock can resolve deterministically if a future
+/// test ever exercises this from a widget.
 class LeaderboardService {
   static const Map<VocabLevel, String> _androidLeaderboardIds = {
-    VocabLevel.basic: 'REPLACE_WITH_BASIC_LEADERBOARD_ID',
-    VocabLevel.intermediate: 'REPLACE_WITH_INTERMEDIATE_LEADERBOARD_ID',
-    VocabLevel.advanced: 'REPLACE_WITH_ADVANCED_LEADERBOARD_ID',
-    VocabLevel.expert: 'REPLACE_WITH_EXPERT_LEADERBOARD_ID',
+    VocabLevel.basic: 'CgkIqeuj6uoNEAIQAQ',
+    VocabLevel.intermediate: 'CgkIqeuj6uoNEAIQAg',
+    VocabLevel.advanced: 'CgkIqeuj6uoNEAIQAw',
+    VocabLevel.expert: 'CgkIqeuj6uoNEAIQBA',
   };
 
   static const _timeout = Duration(seconds: 5);

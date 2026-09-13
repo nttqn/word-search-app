@@ -10,9 +10,9 @@ generic puzzle: finding a word in the grid reveals its Vietnamese meaning right
 underneath it in the clue list. AdMob banner + interstitial ads are wired in
 (currently Google's public **test** ad unit IDs — this project has no AdMob
 account of its own yet, unlike its siblings). A Play Games Services leaderboard
-(one per level) is wired in code — see "Leaderboard" below — but not yet
-functional: the leaderboard IDs are still placeholders since no Play Console
-project exists for this app yet. Sound effects (see "Sound" below) were
+(one per level) is wired in code — see "Leaderboard" below — with real,
+functional leaderboard IDs from a Play Console project the user created
+2026-09-13. Sound effects (see "Sound" below) were
 added 2026-09-13 once the user supplied real WAV/MP3 files — v1 originally
 shipped without any, unlike its siblings.
 
@@ -215,21 +215,24 @@ levels — different grid sizes/word counts — same reasoning `ScoreService`
 already uses for tracking "best" per level). Android-only, unlike
 block-puzzle-app's dual-platform (Android + iOS/Game Center) version of this
 same class, which this file is modeled on — this project has no iOS target.
-All four `_androidLeaderboardIds` values are still `REPLACE_...` placeholders
-(no Play Console project exists for this app yet); `_isConfigured` gates
-every real call on them, so every call safely no-ops until real IDs are set —
-the game stays fully playable, `ScoreService`'s local "Điểm cao: N" keeps
-working exactly as before, and the trophy button on each level card falls
-back to a "Bảng xếp hạng chưa khả dụng." SnackBar. `GameScreen.initState()`
-calls `LeaderboardService.signIn()` unawaited (mirrors block-puzzle-app's
+All four `_androidLeaderboardIds` values are now real (2026-09-13, from a
+Play Console project the user created for this app: `CgkIqeuj6uoNEAIQAQ`
+Basic, `...IQAg` Intermediate, `...IQAw` Advanced, `...IQBA` Expert) and the
+`PLAY_GAMES_APP_ID` GitHub secret (`475353642409`) is set, patched into the
+manifest by `build-apk.yml` same as `ADMOB_APP_ID`. `_isConfigured`'s
+`REPLACE_` check is kept as a guard anyway — harmless once real IDs are set,
+and still correct if they're ever reset. `GameScreen.initState()` calls
+`LeaderboardService.signIn()` unawaited (mirrors block-puzzle-app's
 `signIn()`-moved-out-of-the-engine precedent, for the same reason: keeps a
 future engine-level test from ever triggering a real platform-channel call).
 `_onPuzzleComplete()` calls `submitScore(level, score)` unawaited right next
-to the existing `ScoreService.saveBest` call. To make this functional: create
-a Play Console project for this app, create 4 leaderboards (one per level),
-paste their generated IDs into `_androidLeaderboardIds`, and set the
-`PLAY_GAMES_APP_ID` GitHub secret (patched into the manifest by
-`build-apk.yml`, same mechanism as `ADMOB_APP_ID`).
+to the existing `ScoreService.saveBest` call. **Still cannot be verified
+end-to-end without a real release-signed build** — Play Games ties sign-in
+to the app's signing certificate, and this project has only ever built
+debug-signed test APKs (see `[[feedback_release_signing_setup]]`); until a
+real keystore + those GitHub secrets are set, every leaderboard call still
+safely times out/no-ops the same way it did with placeholder IDs, and the
+trophy button falls back to its "Bảng xếp hạng chưa khả dụng." SnackBar.
 
 **Sound (`lib/services/sound_service.dart`)**: `flame_audio` + `AudioPool`,
 same pattern as block-puzzle-app/`[[project_dino_egg_shooter]]` — `sound_src/`

@@ -39,13 +39,14 @@ flutter build apk --release    # debug-signed test APK
    `main`, folder `/docs`) to get a public URL — Play Console requires one
    before a listing can go live. Once enabled, it's
    `https://nttqn.github.io/word-search-app/privacy.html`.
-5. **Leaderboard**: not yet functional. `lib/services/leaderboard_service.dart`
-   is wired for Google Play Games Services (one leaderboard per difficulty
-   level), but the leaderboard IDs are still placeholders — create a Play
-   Console project for this app, create 4 leaderboards there, paste the
-   generated IDs into `_androidLeaderboardIds`, and set the
-   `PLAY_GAMES_APP_ID` GitHub secret. Until then the trophy button on each
-   level card just shows "not available yet" — the game itself is unaffected.
+5. **Leaderboard**: code + IDs done — real leaderboard IDs from the user's
+   Play Console project are in `_androidLeaderboardIds`, and the
+   `PLAY_GAMES_APP_ID` GitHub secret is set. **Still blocked on release
+   signing (item 2)**: Play Games ties sign-in to the app's signing
+   certificate, and every build so far is debug-signed — until a real
+   keystore is set up, the leaderboard will keep failing sign-in silently
+   (game stays fully playable, trophy button falls back to "not available
+   yet") even with real IDs.
 6. **Target audience**: code-side done — `AdsService.initialize()` sets
    `maxAdContentRating: MaxAdContentRating.t` to match a **13+** audience
    (not child-directed, avoiding Google Play's stricter Families policy).
