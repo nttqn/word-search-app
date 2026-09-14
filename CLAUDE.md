@@ -4,7 +4,8 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## What this is
 
-A Flutter Android word-search game (`WordHunt - Tra Từ`), Vietnamese UI,
+A Flutter word-search game (`WordHunt - Tra Từ`), Android + iOS (iOS added
+2026-09-14, see "iOS" below), Vietnamese UI,
 built as an English vocabulary trainer for Vietnamese learners rather than a
 generic puzzle: finding a word in the grid reveals its Vietnamese meaning right
 underneath it in the clue list. AdMob banner + interstitial ads are wired in
@@ -34,7 +35,10 @@ about, not the package name itself. The display name ("WordHunt - Tra Từ",
 a separate thing from either identifier above) lives in three places, all
 kept in sync: `MaterialApp.title` (`lib/main.dart`), the home screen's title
 image (`assets/title/title.png`, via `lib/screens/home_screen.dart`), and
-the Android `android:label` patched in by `build-apk.yml`.
+the Android `android:label` patched in by `build-apk.yml`. iOS bundle ID:
+`com.trungsmail.wordhunt` (same string as the Android application ID, by
+choice — the two are unrelated identifiers on different platforms, but
+matching them avoids confusion).
 
 There is no native `android/` (or `ios/`/`web/`) directory committed — see
 "Android project is generated, not committed" below, same pattern as this
@@ -76,6 +80,116 @@ run actually failed this way. Fixed by `rm -f test/widget_test.dart`
 immediately after the "Generate Android platform project" step. If a future
 `flutter create` invocation is ever added/changed in this workflow, re-check
 whether it still needs this same cleanup line.
+
+## iOS
+
+Android-only until 2026-09-14, when the user asked for an iOS build. This
+machine is Windows with no Mac anywhere, so everything iOS happens through
+CI on a `macos-latest` GitHub Actions runner (`build-ios` in
+`build-apk.yml`), including signing — no local Keychain Access. **Recipe
+copied verbatim from `[[project_number99_app]]`'s `build-ios` job**
+(confirmed working end-to-end there, TestFlight upload included, after 5
+rounds of CI-log-driven debugging) rather than re-deriving it — see that
+project's own CLAUDE.md "iOS" section for the full failure-by-failure trail
+(automatic signing's Development-vs-Distribution confusion, the Swift
+Package Manager module-map issue, the "xcodebuild command-line overrides
+apply to every target" root cause) if something here needs deeper context.
+
+**Signing certificate is reused, not freshly generated**: Apple Distribution
+certificates are scoped to the whole Developer Team, not to an individual
+app, so the same certificate already created for `[[project_lunar_calendar_app]]`
+(`amlich-distribution.p12`, Team ID `WGZYDZH4KR`) was copied into this
+project as `wordhunt-distribution.p12` and reused directly — confirmed still
+valid (`openssl pkcs12 -info`, expires 2027-09-08) before trusting it. Only
+a **new App Store provisioning profile** was needed (per-app, unlike the
+cert): App ID `com.trungsmail.wordhunt` + the same Distribution cert, named
+"WordHunt App Store" in the portal, downloaded as
+`WordHunt_App_Store.mobileprovision` and sanity-checked locally (`openssl
+smime -inform DER -verify -noverify`) — confirmed `application-identifier`
+= `WGZYDZH4KR.com.trungsmail.wordhunt`, `Name` = "WordHunt App Store", and
+critically **no** `ProvisionedDevices` key (its presence would mean
+Ad Hoc/Development, not App Store).
+
+4 secrets drive signing: `IOS_DIST_P12_BASE64` (base64 of the `.p12`),
+`IOS_DIST_P12_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64` (base64 of the
+`.mobileprovision`), `APPSTORE_TEAM_ID` (`WGZYDZH4KR`). `build-ios`'s
+`Import signing certificate` step checks the first two + the profile secret
+early and sets a `configured` step output — every step after (cert install,
+profile install, archive/export, TestFlight upload) is gated on it, so the
+job cleanly degrades to compile-check-only (proves `google_mobile_ads`,
+`games_services`, `flame_audio` all actually build for iOS) if they're ever
+unset. The archive step uses `CODE_SIGN_STYLE=Manual`,
+`CODE_SIGN_IDENTITY="Apple Distribution"`,
+`PROVISIONING_PROFILE_SPECIFIER="WordHunt App Store"` (the profile's exact
+name, not a UUID) plus `DEVELOPMENT_TEAM` — **all set via
+`ios/Flutter/Release.xcconfig`, never as `xcodebuild` command-line
+overrides**: a command-line override applies to *every* target the build
+touches (every CocoaPods pod target too — `google_mobile_ads`,
+`audioplayers_darwin`, `games_services`, `Pods-Runner`), and those targets
+categorically don't support having a provisioning profile at all, so a
+command-line override fails the whole archive with "does not support
+provisioning profiles". `Release.xcconfig` is the *Runner app target's own*
+`baseConfigurationReference`, which CocoaPods' generated pod xcconfigs never
+reference — so only Runner sees these settings. `flutter config
+--no-enable-swift-package-manager` (a Flutter **tool**-level setting, reset
+every fresh runner) forces plugin resolution to CocoaPods instead of Swift
+Package Manager for the same underlying reason — SPM package targets have
+the identical "can't hold a provisioning profile" limitation.
+
+`google_mobile_ads` needs `CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES
+= YES` set in **both** the `Podfile`'s `post_install` target loop (for pod
+targets) **and** `ios/Flutter/Debug.xcconfig`/`Release.xcconfig` (for the
+Runner app target) — both required together, confirmed by testing the
+Podfile patch alone first and watching the identical "non-modular header"
+error persist.
+
+**Leaderboard is Android-only on purpose** (see
+`lib/services/leaderboard_service.dart`'s doc comment) — adding Game Center
+support would need its own iOS leaderboard IDs from App Store Connect plus
+code changes mirroring block-puzzle-app's dual-platform version of this
+class; nobody's asked for that yet, `_isSupported` only checks for Android,
+and the leaderboard trophy button just silently stays a no-op on iOS
+(same "must never crash or block gameplay" precedent as every other guard
+in that class).
+
+**AdMob on iOS**: no iOS app/ad units exist in the user's AdMob account yet
+(only Android). `lib/services/ads_service.dart`'s `bannerAdUnitId`/
+`interstitialAdUnitId` are platform-aware getters (`_isIOS ? ... : ...`),
+**not** shared constants — reusing the Android ad unit IDs on iOS would
+silently fail to serve (AdMob ad units are platform-specific), a real bug
+`[[project_number99_app]]` hit this exact way on its own first iOS build.
+The iOS branch falls back to Google's public **iOS** test ad unit IDs
+(different constants than Android's test IDs) until a real iOS AdMob app
+exists. `ADMOB_APP_ID_IOS` (the iOS `GADApplicationIdentifier`, patched into
+`Info.plist`) is the separate iOS equivalent of the `ADMOB_APP_ID` secret —
+also unset for now, falls back to Google's public iOS TEST App ID
+(`ca-app-pub-3940256099942544~1458002511`, a different constant than
+Android's TEST App ID).
+
+**TestFlight upload** (`xcrun altool --upload-app`, inside CI since there's
+no Mac to run Transporter locally) needs 3 more secrets
+(`APPSTORE_API_KEY_ID`/`APPSTORE_API_ISSUER_ID`/`APPSTORE_API_KEY_P8`, an
+App Store Connect API key) — **not set for this project yet**, so the
+`upload_ios` `workflow_dispatch` checkbox exists but won't do anything
+useful until those are added. It's opt-in either way (only runs on a manual
+"Run workflow" trigger with the box checked, never on a plain push),
+mirroring how the Android job never auto-uploads the `.aab` to Play
+Console — submitting a build to App Store Connect should be a deliberate
+action.
+
+**Launcher icon uses a separate config**, `flutter_launcher_icons_ios.yaml`
+(not `pubspec.yaml`'s, which stays Android-only) — a shared config would
+make `flutter_launcher_icons` try to write iOS icons into the Android job's
+run (no `ios/` there) and vice versa, breaking both jobs at once. Same
+`assets/icon/icon.png` source as Android; `remove_alpha_ios: true` handles
+flattening the alpha channel iOS/App Store requires but the Android icon
+pipeline doesn't need.
+
+**Not yet done**: no App Store Connect app-record created (needed before a
+TestFlight build shows up for testers, separate from the upload succeeding
+— the user does this by hand); no code-level verification this actually
+archives/signs successfully in a live CI run (untested as of this writing —
+next push to `main` will be the first real signal).
 
 ## Scope decisions (v1)
 
@@ -212,9 +326,12 @@ section when that listing is created; the code doesn't set that for you.
 **Leaderboard (`lib/services/leaderboard_service.dart`)**: Google Play Games
 Services, one leaderboard per `VocabLevel` (scores aren't comparable across
 levels — different grid sizes/word counts — same reasoning `ScoreService`
-already uses for tracking "best" per level). Android-only, unlike
-block-puzzle-app's dual-platform (Android + iOS/Game Center) version of this
-same class, which this file is modeled on — this project has no iOS target.
+already uses for tracking "best" per level). Android-only **by choice**
+(unlike block-puzzle-app's dual-platform Android + iOS/Game Center version
+of this same class) — this project does have an iOS build (see "iOS"
+below) as of 2026-09-14, but Game Center support hasn't been added; nobody's
+asked for it, so `_isSupported` only checks for Android and the leaderboard
+silently no-ops entirely on iOS.
 All four `_androidLeaderboardIds` values are now real (2026-09-13, from a
 Play Console project the user created for this app: `CgkIqeuj6uoNEAIQAQ`
 Basic, `...IQAg` Intermediate, `...IQAw` Advanced, `...IQBA` Expert) and the

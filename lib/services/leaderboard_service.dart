@@ -6,9 +6,15 @@ import '../models/level.dart';
 /// Google Play Games Services leaderboard wiring — one leaderboard per
 /// [VocabLevel], since scores aren't comparable across levels (different
 /// grid sizes and word counts; same reasoning `ScoreService` already uses
-/// for tracking "best" per level). Android-only: this project has no iOS
-/// target (see CLAUDE.md), unlike block-puzzle-app's dual-platform version
-/// of this same class, which this file is otherwise modeled on.
+/// for tracking "best" per level). **Android-only by choice, not by
+/// necessity** — this project does have an iOS build (see CLAUDE.md's "iOS"
+/// section), but adding Game Center support on iOS would need its own iOS
+/// leaderboard IDs (created in App Store Connect, a separate step from Play
+/// Console) plus code changes mirroring block-puzzle-app's dual-platform
+/// version of this same class; nobody's asked for that yet, so `_isSupported`
+/// below still only checks for Android and iOS silently no-ops the
+/// leaderboard entirely (same safe-no-op precedent as every other guard in
+/// this class) rather than crashing or half-working.
 ///
 /// All four leaderboard IDs are now real, from a Play Console project the
 /// user created for this app (2026-09-13) — `_isConfigured`'s `REPLACE_`
