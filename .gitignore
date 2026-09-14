@@ -52,6 +52,11 @@ app.*.map.json
 
 # Release signing — never commit these.
 *.jks
+*.key
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
 *.keystore
 key.properties
 
