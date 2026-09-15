@@ -1,20 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Wraps AdMob banner + interstitial ads. Android ad unit IDs are real
-/// (2026-09-13, this project's own AdMob account, publisher
-/// `9078637596840810` — same account as block-puzzle-app's, a separate app
-/// within it). iOS has no AdMob app entry of its own yet (only Android
-/// exists in the account), so `_bannerAdUnitId`/`_interstitialAdUnitId` fall
-/// back to Google's public **iOS** test ad unit IDs on iOS — deliberately
-/// *not* the Android real IDs. Reusing an Android ad unit ID on iOS would
-/// silently fail to serve (AdMob ad units are platform-specific), a real bug
-/// caught this exact way on `[[project_number99_app]]`'s iOS build. Create a
-/// separate iOS app + ad units in the same AdMob account and replace these
-/// getters' iOS branch once that exists. The `ADMOB_APP_ID` GitHub secret
-/// (manifest-level Application ID for Android; `ADMOB_APP_ID_IOS` is the
-/// separate iOS equivalent, patched into `Info.plist` by the `build-ios` CI
-/// job) is a different value from either ad unit ID.
+/// Wraps AdMob banner + interstitial ads. Android and iOS ad unit IDs are
+/// both fully real now (Android since 2026-09-13, iOS since 2026-09-15 —
+/// same AdMob account, publisher `9078637596840810`, separate app entries
+/// per platform since ad units are platform-specific: reusing one
+/// platform's ID on the other would silently fail to serve, a real bug
+/// caught this exact way on `[[project_number99_app]]`'s iOS build). The
+/// `ADMOB_APP_ID` GitHub secret (manifest-level Application ID for Android;
+/// `ADMOB_APP_ID_IOS` is the separate iOS equivalent, patched into
+/// `Info.plist` by the `build-ios` CI job) is a different value from either
+/// ad unit ID.
 ///
 /// `google_mobile_ads` only supports Android/iOS, so every entry point here
 /// is a no-op on web/desktop — keeps `flutter run -d chrome` usable for
@@ -26,11 +22,11 @@ class AdsService {
   static bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
   static String get bannerAdUnitId => _isIOS
-      ? 'ca-app-pub-3940256099942544/2934735716' // Google public iOS test ID
+      ? 'ca-app-pub-9078637596840810/4872262657' // real iOS ID
       : 'ca-app-pub-9078637596840810/8684680480'; // real Android ID
 
   static String get interstitialAdUnitId => _isIOS
-      ? 'ca-app-pub-3940256099942544/4411468910' // Google public iOS test ID
+      ? 'ca-app-pub-9078637596840810/2238360458' // real iOS ID
       : 'ca-app-pub-9078637596840810/1161413688'; // real Android ID
 
   InterstitialAd? _interstitialAd;

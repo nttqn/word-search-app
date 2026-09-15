@@ -152,30 +152,32 @@ and the leaderboard trophy button just silently stays a no-op on iOS
 (same "must never crash or block gameplay" precedent as every other guard
 in that class).
 
-**AdMob on iOS**: no iOS app/ad units exist in the user's AdMob account yet
-(only Android). `lib/services/ads_service.dart`'s `bannerAdUnitId`/
-`interstitialAdUnitId` are platform-aware getters (`_isIOS ? ... : ...`),
-**not** shared constants — reusing the Android ad unit IDs on iOS would
-silently fail to serve (AdMob ad units are platform-specific), a real bug
-`[[project_number99_app]]` hit this exact way on its own first iOS build.
-The iOS branch falls back to Google's public **iOS** test ad unit IDs
-(different constants than Android's test IDs) until a real iOS AdMob app
-exists. `ADMOB_APP_ID_IOS` (the iOS `GADApplicationIdentifier`, patched into
+**AdMob on iOS**: real iOS app + banner/interstitial ad units created
+2026-09-15, same AdMob account as Android (publisher `9078637596840810`), a
+separate app entry since ad units are platform-specific.
+`lib/services/ads_service.dart`'s `bannerAdUnitId`/`interstitialAdUnitId`
+are platform-aware getters (`_isIOS ? ... : ...`), **not** shared constants —
+reusing the Android ad unit IDs on iOS would silently fail to serve, a real
+bug `[[project_number99_app]]` hit this exact way on its own first iOS
+build. `ADMOB_APP_ID_IOS` (the iOS `GADApplicationIdentifier`, patched into
 `Info.plist`) is the separate iOS equivalent of the `ADMOB_APP_ID` secret —
-also unset for now, falls back to Google's public iOS TEST App ID
-(`ca-app-pub-3940256099942544~1458002511`, a different constant than
-Android's TEST App ID).
+also set now (`ca-app-pub-9078637596840810~1124589335`).
 
 **TestFlight upload** (`xcrun altool --upload-app`, inside CI since there's
-no Mac to run Transporter locally) needs 3 more secrets
+no Mac to run Transporter locally) needs 3 secrets
 (`APPSTORE_API_KEY_ID`/`APPSTORE_API_ISSUER_ID`/`APPSTORE_API_KEY_P8`, an
-App Store Connect API key) — **not set for this project yet**, so the
-`upload_ios` `workflow_dispatch` checkbox exists but won't do anything
-useful until those are added. It's opt-in either way (only runs on a manual
-"Run workflow" trigger with the box checked, never on a plain push),
+App Store Connect API key) — set 2026-09-15, **reusing**
+`[[project_number99_app]]`'s existing key (`AuthKey_K5QF38DL8P.p8`, Key ID
+`K5QF38DL8P`) rather than generating a new one, since App Store Connect API
+keys are Team-scoped, not per-app, same reasoning as the reused Distribution
+certificate above. Copied into this project's root as `AuthKey_K5QF38DL8P.p8`
+(gitignored). It's opt-in either way (only runs on a manual "Run workflow"
+trigger with the `upload_ios` checkbox checked, never on a plain push),
 mirroring how the Android job never auto-uploads the `.aab` to Play
 Console — submitting a build to App Store Connect should be a deliberate
-action.
+action. An App Store Connect app record for `com.trungsmail.wordhunt`
+already existed (created by the user) before the first upload attempt —
+needed for the upload to have somewhere to land.
 
 **Launcher icon uses a separate config**, `flutter_launcher_icons_ios.yaml`
 (not `pubspec.yaml`'s, which stays Android-only) — a shared config would
@@ -185,11 +187,36 @@ run (no `ios/` there) and vice versa, breaking both jobs at once. Same
 flattening the alpha channel iOS/App Store requires but the Android icon
 pipeline doesn't need.
 
-**Not yet done**: no App Store Connect app-record created (needed before a
-TestFlight build shows up for testers, separate from the upload succeeding
-— the user does this by hand); no code-level verification this actually
-archives/signs successfully in a live CI run (untested as of this writing —
-next push to `main` will be the first real signal).
+**Confirmed working end-to-end 2026-09-15**: `build-ios` produces a real
+signed `wordhunt-release-ipa` artifact. The App Store Connect app record for
+`com.trungsmail.wordhunt` was created by the user ahead of time.
+
+**A real failure on the first live attempt (2026-09-14)**: archive failed
+with `error: Provisioning profile "WordHunt App Store" doesn't include
+signing certificate "Apple Distribution: Ngo Thanh Trung (...)"` — exit code
+65, no further detail from the GitHub API's check-run annotations (just the
+generic exit code; the actual `error:` line had to come from the user
+pasting the expanded step log manually, since this session has no
+authenticated access to raw Actions logs). Root cause, confirmed by
+comparing certificate serials with `openssl x509 -noout -serial
+-fingerprint -sha1`: **two different certificates both displayed as "Apple
+Distribution: Ngo Thanh Trung (WGZYDZH4KR)"** existed on the account — the
+provisioning profile had been created against an orphaned one (likely from
+an abandoned CSR generated earlier in this same session, before the user
+said to reuse the existing lunar-calendar-app certificate instead; that
+orphaned cert's private key was never saved), not the one in
+`IOS_DIST_P12_BASE64`. The two were only distinguishable by expiration date
+(2027-09-08 for the correct one vs. 2027-09-07 for the wrong one) since
+both shared the exact same display name. Fixed by having the user
+regenerate the provisioning profile against the correct certificate,
+verifying the new profile's embedded cert serial matched the `.p12`'s
+before updating the `IOS_PROVISIONING_PROFILE_BASE64` secret and retrying —
+succeeded on the very next run. **Lesson for next time this comes up**: if
+a provisioning-profile/certificate error occurs and there's any chance
+multiple same-named Distribution certs exist on the account (e.g. an
+abandoned CSR was ever uploaded), verify by comparing actual certificate
+serials/fingerprints rather than assuming the display name alone identifies
+the certificate uniquely.
 
 ## Scope decisions (v1)
 

@@ -58,26 +58,23 @@ iOS support was added 2026-09-14 (`build-ios` job in
 `.github/workflows/build-apk.yml`) — see `CLAUDE.md`'s "iOS" section for
 the full story.
 
-1. **Signing**: done — `IOS_DIST_P12_BASE64`, `IOS_DIST_P12_PASSWORD`,
+1. **Signing**: done — confirmed working end-to-end 2026-09-15.
+   `IOS_DIST_P12_BASE64`, `IOS_DIST_P12_PASSWORD`,
    `IOS_PROVISIONING_PROFILE_BASE64`, `APPSTORE_TEAM_ID` GitHub secrets are
    set, reusing an existing Team-wide Apple Distribution certificate (from
-   `lunar-calendar-app`) plus a new App Store provisioning profile for this
+   `lunar-calendar-app`) plus an App Store provisioning profile for this
    app's bundle ID. `wordhunt-distribution.p12` / `distribution.cer` /
    `WordHunt_App_Store.mobileprovision` are gitignored, live in the project
    root.
-2. **AdMob (iOS)**: not yet set up — no iOS app/ad units exist in the AdMob
-   account yet, so iOS builds serve Google's public test ads until a real
-   iOS AdMob app is created and `ADMOB_APP_ID_IOS` is set (ad unit IDs are
-   hardcoded per-platform in `lib/services/ads_service.dart`).
+2. **AdMob (iOS)**: done — real banner/interstitial ad unit IDs and
+   `ADMOB_APP_ID_IOS` are set, same AdMob account as Android.
 3. **Leaderboard (iOS)**: not implemented — Game Center support was never
    added (Android-only by choice, see `CLAUDE.md`). Skipped entirely on
    iOS, not a crash.
-4. **TestFlight upload**: not yet set up — needs `APPSTORE_API_KEY_ID`,
-   `APPSTORE_API_ISSUER_ID`, `APPSTORE_API_KEY_P8` (an App Store Connect
-   API key). Until then, download the signed `.ipa` CI artifact and upload
-   it manually (e.g. via Transporter) instead of using the `upload_ios`
-   `workflow_dispatch` checkbox.
-5. **App Store Connect app record**: not yet created — the user needs to
-   create the app listing by hand in App Store Connect before a TestFlight
-   build can show up for testers, separate from the upload itself
-   succeeding.
+4. **TestFlight upload**: done — `APPSTORE_API_KEY_ID`,
+   `APPSTORE_API_ISSUER_ID`, `APPSTORE_API_KEY_P8` are set, reusing
+   `number99-app`'s existing App Store Connect API key (Team-scoped, not
+   per-app). Trigger via `workflow_dispatch` with the `upload_ios` checkbox
+   ticked.
+5. **App Store Connect app record**: done — created by the user for
+   `com.trungsmail.wordhunt` before the first upload attempt.

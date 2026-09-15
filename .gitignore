@@ -63,3 +63,7 @@ key.properties
 .flutter-plugins
 .metadata
 pubspec.lock
+IOS_DIST_P12_BASE64.txt
+IOS_PROVISIONING_PROFILE_BASE64.txt
+AuthKey_*.p8
+APPSTORE_API_KEY_P8.txt
