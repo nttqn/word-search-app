@@ -191,6 +191,19 @@ pipeline doesn't need.
 signed `wordhunt-release-ipa` artifact. The App Store Connect app record for
 `com.trungsmail.wordhunt` was created by the user ahead of time.
 
+**TestFlight upload gotcha**: App Store Connect rejects a re-upload of a
+build whose `CFBundleVersion` (`pubspec.yaml`'s `+N` build-number suffix)
+was ever accepted before, even if that upload came from a run that
+otherwise looked unrelated — `altool` fails with `ENTITY_ERROR.ATTRIBUTE
+.INVALID.DUPLICATE` / "The bundle version must be higher than the
+previously uploaded version". Hit this on build `2` (`1.0.0+2`) after what
+looked like the first `upload_ios: true` run — most likely two
+`workflow_dispatch` runs were triggered close together and one succeeded
+silently before the failing one's error was seen. **Fix is always the
+same**: bump `pubspec.yaml`'s build number (the part after `+`) and push/
+retry — there is no way to re-use a build number once App Store Connect has
+accepted it, even after a failed follow-up attempt with that same number.
+
 **A real failure on the first live attempt (2026-09-14)**: archive failed
 with `error: Provisioning profile "WordHunt App Store" doesn't include
 signing certificate "Apple Distribution: Ngo Thanh Trung (...)"` — exit code
