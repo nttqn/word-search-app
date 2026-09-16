@@ -13,7 +13,8 @@ import '../game/word_search_engine.dart';
 /// the panel was scrollable at all otherwise.
 class WordListWidget extends StatefulWidget {
   final WordSearchEngine engine;
-  const WordListWidget({super.key, required this.engine});
+  final double scale;
+  const WordListWidget({super.key, required this.engine, this.scale = 1.0});
 
   @override
   State<WordListWidget> createState() => _WordListWidgetState();
@@ -64,22 +65,22 @@ class _WordListWidgetState extends State<WordListWidget> {
           children: [
             ListView.builder(
               controller: _controller,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8 * widget.scale),
               itemCount: words.length,
               itemBuilder: (context, i) {
                 final placed = words[i];
                 final found = widget.engine.foundWords.contains(placed);
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  padding: EdgeInsets.symmetric(vertical: 5 * widget.scale),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         found ? Icons.check_circle : Icons.circle_outlined,
-                        size: 16,
+                        size: 16 * widget.scale,
                         color: found ? Colors.greenAccent : Colors.white54,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8 * widget.scale),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +90,7 @@ class _WordListWidgetState extends State<WordListWidget> {
                               style: TextStyle(
                                 color: found ? Colors.white54 : Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 15 * widget.scale,
                                 decoration: found
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
@@ -98,9 +99,9 @@ class _WordListWidgetState extends State<WordListWidget> {
                             if (found)
                               Text(
                                 placed.word.meaningVi,
-                                style: const TextStyle(
-                                  color: Color(0xFFFFD54F),
-                                  fontSize: 12,
+                                style: TextStyle(
+                                  color: const Color(0xFFFFD54F),
+                                  fontSize: 12 * widget.scale,
                                 ),
                               ),
                           ],

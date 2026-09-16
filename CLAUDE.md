@@ -260,11 +260,41 @@ being. Verified via the same iPad-resolution screenshot technique
 post-fix (properly centered content, readable grid letters) and a phone-size
 screenshot re-check (420×850, pixel-identical to before the change, since
 480 > any phone width the `ConstrainedBox` never actually constrains
-anything there). If a future change wants a true tablet-optimized layout
-(e.g. a two-pane view putting the word list beside the grid instead of
-above it) rather than this "centered phone UI" compromise, that's a bigger
-redesign than what was done here — this fix only makes iPad *not broken*,
-it doesn't make iPad layout *distinctive*.
+anything there).
+
+**Round 2 — "not broken" wasn't enough, user wanted it to actually look
+bigger.** The maxWidth:480 fix above stopped the grid from being unreadable,
+but on a real iPad canvas it now read as a small centered phone-width island
+with huge empty margins either side — user flagged this directly from an
+iPad-resolution screenshot ("nhỏ xíu nhìn xấu quá... làm to lên tương ứng
+kích thước màn hình ipad được không?"). **Fixed 2026-09-16**, same two files:
+raised the cap to `maxWidth: 760` and, inside the `ConstrainedBox`, added a
+`LayoutBuilder` computing `scale = (constraints.maxWidth / 420).clamp(1.0,
+1.8)` — a genuine proportional scale factor (1.0 on phone widths, up to 1.8
+on the 760-wide iPad cap), not just a wider box around the same fixed font
+sizes. `scale` is threaded through every font size, icon size, and
+padding/spacing value in `home_screen.dart`'s `_LevelCard` and
+`game_screen.dart`'s `_Hud`/`_Stat`, plus a new `scale` param on
+`WordListWidget` (`word_list_widget.dart`) multiplying its icon/text sizes
+and padding. `GridWidget` deliberately gets **no** `scale` param — it already
+derives its own font size from actual cell size (round 1's fix), so simply
+handing it more width via the wider cap makes it bigger correctly on its
+own; threading `scale` into it too would double-scale it. Verified via
+`flutter analyze` (clean) and `flutter test` (21/21), then re-confirmed
+visually on both the home screen and the in-game screen at iPad resolution
+(2064×2752) — title art, level cards, HUD stats, word list, and grid letters
+all visibly larger and better-proportioned than round 1, with no layout
+overflow. Note: the Column-based game screen still doesn't stretch to fill
+the iPad's tall portrait height — the grid is width-bound (square, capped by
+the 760 max width) and ends up vertically centered in the leftover
+`Expanded` space between the word list and the hint button, so there's
+still visible empty space above/below the grid on iPad. That's an expected
+consequence of keeping the same single-column phone layout rather than
+redesigning for tablet, not a bug. If a future change wants a true
+tablet-optimized layout (e.g. a two-pane view putting the word list beside
+the grid instead of above it, filling that vertical space), that's a bigger
+redesign than either round of this fix — both rounds only make iPad *look
+right*, neither makes the iPad layout *distinctive*.
 
 ## Scope decisions (v1)
 

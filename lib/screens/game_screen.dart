@@ -144,52 +144,69 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: Colors.transparent,
         body: AppBackground(
           child: SafeArea(
-            // Same phone-proportioned-content-centered-on-any-screen-width
-            // fix as HomeScreen — see that screen's build() comment and
-            // CLAUDE.md's "iPad" section for why.
+            // Same width-cap-plus-proportional-scale fix as HomeScreen —
+            // see that screen's build() comment and CLAUDE.md's "iPad"
+            // section for the two rounds of why. GridWidget needs no
+            // `scale` param: it already derives its letters' font size
+            // from its own actual cell size, so simply giving it more
+            // width here (via the wider cap) makes it bigger correctly on
+            // its own.
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Column(
-                  children: [
-                    _Hud(engine: _engine, onBack: _onBackPressed, level: widget.level),
-                    SizedBox(
-                      height: 130,
-                      child: WordListWidget(engine: _engine),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Center(
-                          child: GridWidget(engine: _engine, onWordFound: _onWordFound),
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final scale = (constraints.maxWidth / 420).clamp(1.0, 1.8);
+                    return Column(
+                      children: [
+                        _Hud(
+                          engine: _engine,
+                          onBack: _onBackPressed,
+                          level: widget.level,
+                          scale: scale,
                         ),
-                      ),
-                    ),
-                    AnimatedBuilder(
-                      animation: _engine,
-                      builder: (context, _) => Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _engine.hintsRemaining > 0 ? _onHint : null,
-                            icon: const Icon(Icons.lightbulb_outline),
-                            label: Text('Gợi ý  (${_engine.hintsRemaining})'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF2E7D6B),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                        SizedBox(
+                          height: 130 * scale,
+                          child: WordListWidget(engine: _engine, scale: scale),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Center(
+                              child: GridWidget(engine: _engine, onWordFound: _onWordFound),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    if (_banner != null)
-                      SizedBox(
-                        width: _banner!.size.width.toDouble(),
-                        height: _banner!.size.height.toDouble(),
-                        child: AdWidget(ad: _banner!),
-                      ),
-                  ],
+                        AnimatedBuilder(
+                          animation: _engine,
+                          builder: (context, _) => Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _engine.hintsRemaining > 0 ? _onHint : null,
+                                icon: Icon(Icons.lightbulb_outline, size: 24 * scale),
+                                label: Text(
+                                  'Gợi ý  (${_engine.hintsRemaining})',
+                                  style: TextStyle(fontSize: 14 * scale),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2E7D6B),
+                                  padding: EdgeInsets.symmetric(vertical: 12 * scale),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_banner != null)
+                          SizedBox(
+                            width: _banner!.size.width.toDouble(),
+                            height: _banner!.size.height.toDouble(),
+                            child: AdWidget(ad: _banner!),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -204,8 +221,14 @@ class _Hud extends StatelessWidget {
   final WordSearchEngine engine;
   final VocabLevel level;
   final VoidCallback onBack;
+  final double scale;
 
-  const _Hud({required this.engine, required this.level, required this.onBack});
+  const _Hud({
+    required this.engine,
+    required this.level,
+    required this.onBack,
+    required this.scale,
+  });
 
   String _formatTime(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
@@ -219,22 +242,22 @@ class _Hud extends StatelessWidget {
       animation: engine,
       builder: (context, _) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+          padding: EdgeInsets.fromLTRB(8, 8 * scale, 16, 8 * scale),
           color: Colors.black.withValues(alpha: 0.25),
           child: Row(
             children: [
               IconButton(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 * scale),
               ),
               Expanded(
                 child: Wrap(
                   alignment: WrapAlignment.spaceEvenly,
                   spacing: 12,
                   children: [
-                    _Stat(label: 'Từ', value: '${engine.foundWords.length}/${engine.grid.placedWords.length}'),
-                    _Stat(label: 'Điểm', value: '${engine.score}'),
-                    _Stat(label: 'Giờ', value: _formatTime(engine.elapsedSeconds)),
+                    _Stat(label: 'Từ', value: '${engine.foundWords.length}/${engine.grid.placedWords.length}', scale: scale),
+                    _Stat(label: 'Điểm', value: '${engine.score}', scale: scale),
+                    _Stat(label: 'Giờ', value: _formatTime(engine.elapsedSeconds), scale: scale),
                   ],
                 ),
               ),
@@ -250,7 +273,8 @@ class _Hud extends StatelessWidget {
 class _Stat extends StatelessWidget {
   final String label;
   final String value;
-  const _Stat({required this.label, required this.value});
+  final double scale;
+  const _Stat({required this.label, required this.value, required this.scale});
 
   @override
   Widget build(BuildContext context) {
@@ -259,15 +283,15 @@ class _Stat extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 16 * scale,
           ),
         ),
         Text(
           label,
-          style: const TextStyle(color: Colors.white60, fontSize: 11),
+          style: TextStyle(color: Colors.white60, fontSize: 11 * scale),
         ),
       ],
     );

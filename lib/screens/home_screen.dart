@@ -74,56 +74,65 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       body: AppBackground(
         child: SafeArea(
-          // Phone-proportioned UI, never designed for a tablet-size canvas —
-          // rather than letting everything stretch full-bleed (huge dead
-          // space below content, oversized cards), cap the whole screen's
-          // content at a phone-like width and center it. This is the same
-          // "centered phone UI with side margins" pattern most simple
-          // universal (iPhone+iPad) games use rather than a true tablet
-          // redesign — see CLAUDE.md's "iPad" section for the screenshot
-          // that showed why this was needed.
+          // Phone-designed UI, never built for a tablet-size canvas. Just
+          // capping the content at a fixed phone width (the original fix)
+          // avoided the "tiny letters in huge cells" bug but overcorrected
+          // into "the whole app looks small and lost" on a real iPad
+          // screen — flagged by the user from an actual iPad-resolution
+          // screenshot. This still caps width (so it never regresses back
+          // to the original full-bleed-stretch bug) but now also scales
+          // every size in the level list proportionally to how much extra
+          // width is actually available, via `scale` — not just a wider
+          // box with the same small fixed font sizes. See CLAUDE.md's
+          // "iPad" section for both rounds of this fix.
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Stack(
-                children: [
-                  Column(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final scale = (constraints.maxWidth / 420).clamp(1.0, 1.8);
+                  return Stack(
                     children: [
-                      const SizedBox(height: 16),
-                      Image.asset('assets/title/title.png', width: 320),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          children: [
-                            for (final level in VocabLevel.values)
-                              _LevelCard(
-                                level: level,
-                                bestScore: _bestScores[level] ?? 0,
-                                onTap: () => _openLevel(level),
-                                onLeaderboardTap: () => _openLeaderboard(level),
+                      Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Image.asset('assets/title/title.png', width: 320 * scale),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: ListView(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20 * scale,
+                                vertical: 8,
                               ),
-                          ],
-                        ),
+                              children: [
+                                for (final level in VocabLevel.values)
+                                  _LevelCard(
+                                    level: level,
+                                    bestScore: _bestScores[level] ?? 0,
+                                    scale: scale,
+                                    onTap: () => _openLevel(level),
+                                    onLeaderboardTap: () => _openLeaderboard(level),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (_banner != null)
+                            SizedBox(
+                              width: _banner!.size.width.toDouble(),
+                              height: _banner!.size.height.toDouble(),
+                              child: AdWidget(ad: _banner!),
+                            ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                      if (_banner != null)
-                        SizedBox(
-                          width: _banner!.size.width.toDouble(),
-                          height: _banner!.size.height.toDouble(),
-                          child: AdWidget(ad: _banner!),
-                        ),
-                      const SizedBox(height: 8),
+                      const Positioned(
+                        top: 4,
+                        right: 4,
+                        child: SoundToggleButton(),
+                      ),
                     ],
-                  ),
-                  const Positioned(
-                    top: 4,
-                    right: 4,
-                    child: SoundToggleButton(),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -136,12 +145,14 @@ class _HomeScreenState extends State<HomeScreen> {
 class _LevelCard extends StatelessWidget {
   final VocabLevel level;
   final int bestScore;
+  final double scale;
   final VoidCallback onTap;
   final VoidCallback onLeaderboardTap;
 
   const _LevelCard({
     required this.level,
     required this.bestScore,
+    required this.scale,
     required this.onTap,
     required this.onLeaderboardTap,
   });
@@ -150,7 +161,7 @@ class _LevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       color: Colors.white.withValues(alpha: 0.08),
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: 12 * scale),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
@@ -165,15 +176,15 @@ class _LevelCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16 * scale,
+                  vertical: 14 * scale,
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 48 * scale,
+                      height: 48 * scale,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFF3D8BFD),
@@ -181,46 +192,46 @@ class _LevelCard extends StatelessWidget {
                       ),
                       child: Text(
                         '${level.gridSize}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 16 * scale,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: 14 * scale),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             level.label,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 17,
+                              fontSize: 17 * scale,
                             ),
                           ),
                           Text(
                             level.description,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white60,
-                              fontSize: 12,
+                              fontSize: 12 * scale,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4 * scale),
                           Text(
                             'Điểm cao: $bestScore',
-                            style: const TextStyle(
-                              color: Color(0xFFFFD54F),
-                              fontSize: 12,
+                            style: TextStyle(
+                              color: const Color(0xFFFFD54F),
+                              fontSize: 12 * scale,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.white54),
+                    Icon(Icons.chevron_right, color: Colors.white54, size: 24 * scale),
                   ],
                 ),
               ),
@@ -228,7 +239,7 @@ class _LevelCard extends StatelessWidget {
           ),
           IconButton(
             onPressed: onLeaderboardTap,
-            icon: const Icon(Icons.leaderboard, color: Colors.amberAccent),
+            icon: Icon(Icons.leaderboard, color: Colors.amberAccent, size: 24 * scale),
             tooltip: 'Bảng xếp hạng ${level.label}',
           ),
         ],
