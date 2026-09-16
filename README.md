@@ -68,9 +68,11 @@ the full story.
    root.
 2. **AdMob (iOS)**: done — real banner/interstitial ad unit IDs and
    `ADMOB_APP_ID_IOS` are set, same AdMob account as Android.
-3. **Leaderboard (iOS)**: not implemented — Game Center support was never
-   added (Android-only by choice, see `CLAUDE.md`). Skipped entirely on
-   iOS, not a crash.
+3. **Leaderboard (iOS)**: done — Game Center leaderboards created
+   (`ldb1`-`ldb4`, one per level) and wired into
+   `lib/services/leaderboard_service.dart`; `tool/Runner.entitlements` +
+   the `Install Game Center entitlement` CI step add the required
+   capability to the Runner target.
 4. **TestFlight upload**: done — `APPSTORE_API_KEY_ID`,
    `APPSTORE_API_ISSUER_ID`, `APPSTORE_API_KEY_P8` are set, reusing
    `number99-app`'s existing App Store Connect API key (Team-scoped, not

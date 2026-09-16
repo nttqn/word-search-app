@@ -143,14 +143,19 @@ Runner app target) — both required together, confirmed by testing the
 Podfile patch alone first and watching the identical "non-modular header"
 error persist.
 
-**Leaderboard is Android-only on purpose** (see
-`lib/services/leaderboard_service.dart`'s doc comment) — adding Game Center
-support would need its own iOS leaderboard IDs from App Store Connect plus
-code changes mirroring block-puzzle-app's dual-platform version of this
-class; nobody's asked for that yet, `_isSupported` only checks for Android,
-and the leaderboard trophy button just silently stays a no-op on iOS
-(same "must never crash or block gameplay" precedent as every other guard
-in that class).
+**Leaderboard is dual-platform as of 2026-09-17** (see "Leaderboard" below
+for the full writeup) — Game Center support was added once the user
+created iOS leaderboards in App Store Connect, mirroring block-puzzle-app's
+dual-platform `LeaderboardService`. `Install Game Center entitlement`
+copies `tool/Runner.entitlements` into `ios/Runner/Runner.entitlements` and
+wires `CODE_SIGN_ENTITLEMENTS` into `Release.xcconfig` — via the
+xcconfig-scoped-to-Runner trick (never an `xcodebuild` command-line
+override), same reasoning as the module-map fix and the signing settings
+above. The App ID already had the Game Center capability enabled when it
+was created (confirmed by decoding the provisioning profile's own embedded
+entitlements — `com.apple.developer.game-center: true` was already
+present), so no provisioning-profile regeneration was needed for this
+addition.
 
 **AdMob on iOS**: real iOS app + banner/interstitial ad units created
 2026-09-15, same AdMob account as Android (publisher `9078637596840810`), a
@@ -393,33 +398,43 @@ code-level signal only** — still need to actually pick "13+" (or whatever is
 decided) in the Play Console listing's own "Target audience and content"
 section when that listing is created; the code doesn't set that for you.
 
-**Leaderboard (`lib/services/leaderboard_service.dart`)**: Google Play Games
-Services, one leaderboard per `VocabLevel` (scores aren't comparable across
-levels — different grid sizes/word counts — same reasoning `ScoreService`
-already uses for tracking "best" per level). Android-only **by choice**
-(unlike block-puzzle-app's dual-platform Android + iOS/Game Center version
-of this same class) — this project does have an iOS build (see "iOS"
-below) as of 2026-09-14, but Game Center support hasn't been added; nobody's
-asked for it, so `_isSupported` only checks for Android and the leaderboard
-silently no-ops entirely on iOS.
-All four `_androidLeaderboardIds` values are now real (2026-09-13, from a
+**Leaderboard (`lib/services/leaderboard_service.dart`)**: Google Play
+Games Services (Android) + Game Center (iOS), one leaderboard per
+`VocabLevel` per platform (scores aren't comparable across levels —
+different grid sizes/word counts — same reasoning `ScoreService` already
+uses for tracking "best" per level; Play Games and Game Center also use
+entirely separate leaderboard ID spaces for the same game). Dual-platform
+since 2026-09-17, mirroring block-puzzle-app's version of this same class —
+was Android-only from 2026-09-13 until the user created Game Center
+leaderboards for iOS too.
+
+All four `_androidLeaderboardIds` values are real (2026-09-13, from a
 Play Console project the user created for this app: `CgkIqeuj6uoNEAIQAQ`
 Basic, `...IQAg` Intermediate, `...IQAw` Advanced, `...IQBA` Expert) and the
 `PLAY_GAMES_APP_ID` GitHub secret (`475353642409`) is set, patched into the
-manifest by `build-apk.yml` same as `ADMOB_APP_ID`. `_isConfigured`'s
-`REPLACE_` check is kept as a guard anyway — harmless once real IDs are set,
-and still correct if they're ever reset. `GameScreen.initState()` calls
+manifest by `build-apk.yml` same as `ADMOB_APP_ID`. All four
+`_iosLeaderboardIds` values are also real (2026-09-17: `ldb1` Basic, `ldb2`
+Intermediate, `ldb3` Advanced, `ldb4` Expert) — chosen directly by the user
+when creating each Game Center leaderboard in App Store Connect, unlike
+Play Console's opaque generated IDs. `_isConfigured`'s `REPLACE_` check is
+kept as a guard anyway on both platforms — harmless once real IDs are set,
+and still correct if they're ever reset. See the "iOS" section above for
+the entitlement wiring Game Center needed on top of the leaderboard IDs
+themselves (unlike Android, which just needed the manifest meta-data).
+`GameScreen.initState()` calls
 `LeaderboardService.signIn()` unawaited (mirrors block-puzzle-app's
 `signIn()`-moved-out-of-the-engine precedent, for the same reason: keeps a
 future engine-level test from ever triggering a real platform-channel call).
 `_onPuzzleComplete()` calls `submitScore(level, score)` unawaited right next
-to the existing `ScoreService.saveBest` call. **Still cannot be verified
-end-to-end without a real release-signed build** — Play Games ties sign-in
-to the app's signing certificate, and this project has only ever built
-debug-signed test APKs (see `[[feedback_release_signing_setup]]`); until a
-real keystore + those GitHub secrets are set, every leaderboard call still
-safely times out/no-ops the same way it did with placeholder IDs, and the
-trophy button falls back to its "Bảng xếp hạng chưa khả dụng." SnackBar.
+to the existing `ScoreService.saveBest` call. Android release signing is
+set up and confirmed working (see "Release signing" below) — Play Games
+ties sign-in to the app's signing certificate, so this was a real
+prerequisite, not just a nice-to-have. Neither platform's actual
+sign-in/submit/show flow has been manually verified on a real device yet;
+until then (or if either ever fails for any other reason — no
+account signed in, no network, etc.) every leaderboard call still safely
+times out/no-ops, and the trophy button falls back to its "Bảng xếp hạng
+chưa khả dụng." SnackBar.
 
 **Sound (`lib/services/sound_service.dart`)**: `flame_audio` + `AudioPool`,
 same pattern as block-puzzle-app/`[[project_dino_egg_shooter]]` — `sound_src/`
