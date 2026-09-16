@@ -231,6 +231,36 @@ abandoned CSR was ever uploaded), verify by comparing actual certificate
 serials/fingerprints rather than assuming the display name alone identifies
 the certificate uniquely.
 
+**iPad**: `flutter create --platforms=ios` defaults to universal (iPhone +
+iPad, `TARGETED_DEVICE_FAMILY` not restricted), which is why App Store
+Connect asked for a 13" iPad display screenshot even though this UI was
+only ever designed/tested at phone widths. A real screenshot at iPad Pro
+13" resolution (2064×2752, rendered via the same Playwright/web-preview
+technique used elsewhere in this project, **not** a real device/simulator —
+this machine has no Mac) showed the phone-proportioned UI stretching
+full-bleed: level cards/HUD/word list spanning the entire width, and —
+worse — the letter grid's cells growing to match the available width while
+`_CellView`'s font size stayed a flat constant, leaving tiny letters
+lost in huge cells. **Fixed 2026-09-16** two ways, both in
+`lib/screens/home_screen.dart` and `lib/screens/game_screen.dart`: (1)
+wrap each screen's whole content in `Center(child: ConstrainedBox(
+constraints: BoxConstraints(maxWidth: 480), ...))` — the same
+"centered phone-width column on any screen size" pattern most simple
+universal (non-tablet-redesigned) games use, rather than a true responsive
+tablet layout; (2) `grid_widget.dart`'s `_CellView` now takes the actual
+`cellSize` and derives its font size from it
+(`(cellSize * 0.42).clamp(11.0, 22.0)`) instead of a flat `16`, so letters
+stay proportionally legible regardless of how big the grid's cells end up
+being. Verified via the same iPad-resolution screenshot technique
+post-fix (properly centered content, readable grid letters) and a phone-size
+screenshot re-check (420×850, pixel-identical to before the change, since
+480 > any phone width the `ConstrainedBox` never actually constrains
+anything there). If a future change wants a true tablet-optimized layout
+(e.g. a two-pane view putting the word list beside the grid instead of
+above it) rather than this "centered phone UI" compromise, that's a bigger
+redesign than what was done here — this fix only makes iPad *not broken*,
+it doesn't make iPad layout *distinctive*.
+
 ## Scope decisions (v1)
 
 - **No bespoke background *image*.** `AppBackground` (see "Icon & title art"

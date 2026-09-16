@@ -93,6 +93,7 @@ class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
                           height: _cellSize,
                           child: _CellView(
                             letter: grid.letters[r][c],
+                            cellSize: _cellSize,
                             foundColor: foundCellColor[Cell(r, c)],
                             isHinted: hintCells.contains(Cell(r, c)),
                             isDragging: dragCells.contains(Cell(r, c)),
@@ -303,6 +304,7 @@ class _ScorePopup {
 
 class _CellView extends StatelessWidget {
   final String letter;
+  final double cellSize;
   final Color? foundColor;
   final bool isHinted;
   final bool isDragging;
@@ -310,6 +312,7 @@ class _CellView extends StatelessWidget {
 
   const _CellView({
     required this.letter,
+    required this.cellSize,
     required this.foundColor,
     required this.isHinted,
     required this.isDragging,
@@ -340,7 +343,16 @@ class _CellView extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: textColor,
-          fontSize: 16,
+          // Proportional to the actual rendered cell size rather than a
+          // flat constant — a fixed 16px reads fine on a phone (where
+          // cells land in a similar range regardless of level) but looked
+          // like a tiny dot lost in an oversized box once the grid was
+          // ever laid out in more available space than a phone screen
+          // provides (confirmed via an iPad-resolution screenshot; see
+          // CLAUDE.md's "iPad" section). Clamped so it can't go
+          // illegibly small on Expert's 15x15 grid or absurdly large on
+          // Basic's 10x10 one.
+          fontSize: (cellSize * 0.42).clamp(11.0, 22.0),
         ),
       ),
     );

@@ -74,45 +74,58 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       body: AppBackground(
         child: SafeArea(
-          child: Stack(
-            children: [
-              Column(
+          // Phone-proportioned UI, never designed for a tablet-size canvas —
+          // rather than letting everything stretch full-bleed (huge dead
+          // space below content, oversized cards), cap the whole screen's
+          // content at a phone-like width and center it. This is the same
+          // "centered phone UI with side margins" pattern most simple
+          // universal (iPhone+iPad) games use rather than a true tablet
+          // redesign — see CLAUDE.md's "iPad" section for the screenshot
+          // that showed why this was needed.
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Stack(
                 children: [
-                  const SizedBox(height: 16),
-                  Image.asset('assets/title/title.png', width: 320),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
-                      children: [
-                        for (final level in VocabLevel.values)
-                          _LevelCard(
-                            level: level,
-                            bestScore: _bestScores[level] ?? 0,
-                            onTap: () => _openLevel(level),
-                            onLeaderboardTap: () => _openLeaderboard(level),
+                  Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Image.asset('assets/title/title.png', width: 320),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
                           ),
-                      ],
-                    ),
+                          children: [
+                            for (final level in VocabLevel.values)
+                              _LevelCard(
+                                level: level,
+                                bestScore: _bestScores[level] ?? 0,
+                                onTap: () => _openLevel(level),
+                                onLeaderboardTap: () => _openLeaderboard(level),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (_banner != null)
+                        SizedBox(
+                          width: _banner!.size.width.toDouble(),
+                          height: _banner!.size.height.toDouble(),
+                          child: AdWidget(ad: _banner!),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
-                  if (_banner != null)
-                    SizedBox(
-                      width: _banner!.size.width.toDouble(),
-                      height: _banner!.size.height.toDouble(),
-                      child: AdWidget(ad: _banner!),
-                    ),
-                  const SizedBox(height: 8),
+                  const Positioned(
+                    top: 4,
+                    right: 4,
+                    child: SoundToggleButton(),
+                  ),
                 ],
               ),
-              const Positioned(
-                top: 4,
-                right: 4,
-                child: SoundToggleButton(),
-              ),
-            ],
+            ),
           ),
         ),
       ),

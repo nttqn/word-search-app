@@ -144,46 +144,54 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: Colors.transparent,
         body: AppBackground(
           child: SafeArea(
-            child: Column(
-              children: [
-                _Hud(engine: _engine, onBack: _onBackPressed, level: widget.level),
-                SizedBox(
-                  height: 130,
-                  child: WordListWidget(engine: _engine),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Center(
-                      child: GridWidget(engine: _engine, onWordFound: _onWordFound),
+            // Same phone-proportioned-content-centered-on-any-screen-width
+            // fix as HomeScreen — see that screen's build() comment and
+            // CLAUDE.md's "iPad" section for why.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  children: [
+                    _Hud(engine: _engine, onBack: _onBackPressed, level: widget.level),
+                    SizedBox(
+                      height: 130,
+                      child: WordListWidget(engine: _engine),
                     ),
-                  ),
-                ),
-                AnimatedBuilder(
-                  animation: _engine,
-                  builder: (context, _) => Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _engine.hintsRemaining > 0 ? _onHint : null,
-                        icon: const Icon(Icons.lightbulb_outline),
-                        label: Text('Gợi ý  (${_engine.hintsRemaining})'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D6B),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Center(
+                          child: GridWidget(engine: _engine, onWordFound: _onWordFound),
                         ),
                       ),
                     ),
-                  ),
+                    AnimatedBuilder(
+                      animation: _engine,
+                      builder: (context, _) => Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _engine.hintsRemaining > 0 ? _onHint : null,
+                            icon: const Icon(Icons.lightbulb_outline),
+                            label: Text('Gợi ý  (${_engine.hintsRemaining})'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D6B),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_banner != null)
+                      SizedBox(
+                        width: _banner!.size.width.toDouble(),
+                        height: _banner!.size.height.toDouble(),
+                        child: AdWidget(ad: _banner!),
+                      ),
+                  ],
                 ),
-                if (_banner != null)
-                  SizedBox(
-                    width: _banner!.size.width.toDouble(),
-                    height: _banner!.size.height.toDouble(),
-                    child: AdWidget(ad: _banner!),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
