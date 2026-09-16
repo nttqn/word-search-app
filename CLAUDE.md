@@ -296,6 +296,34 @@ the grid instead of above it, filling that vertical space), that's a bigger
 redesign than either round of this fix — both rounds only make iPad *look
 right*, neither makes the iPad layout *distinctive*.
 
+**Round 3 — the "still small" feedback was actually a test-harness bug, not
+a code bug.** After round 2 the user still said the game screen looked
+tiny from a fresh iPad-resolution screenshot. Before touching the code
+again, re-derived the test viewport from first principles: App Store
+Connect's required 13" iPad screenshot size (2064×2752) is the *physical
+pixel* resolution, but every prior screenshot in this project was captured
+with Playwright's viewport set to `2064×2752` at `deviceScaleFactor: 1` —
+which makes Flutter treat 2064 as the *logical* pixel width. A real iPad
+Pro 13" (M4) is only **1032×1376 logical points** at 2x device pixel ratio
+(1032×2 = 2064, confirming the math). So every iPad screenshot taken in
+this project so far — including the one the "still small" complaint was
+based on — simulated a device with **double** the real iPad's logical
+resolution, which made the width-capped, scale-factor content look roughly
+half as large relative to the canvas as it actually renders on a real
+device. Re-captured both screens with the corrected viewport
+(`viewport: {width: 1032, height: 1376}, deviceScaleFactor: 2`, which still
+produces the required 2064×2752 pixel PNG) and round 2's code — unchanged
+— already looks correctly sized: level cards and HUD/grid/word-list fill
+most of the screen width with legible text, no further scale-factor
+changes needed. **Takeaway for any future iPad/tablet screenshot work in
+this project (or others without a Mac to test on a real simulator): always
+set the Playwright viewport to the device's logical point size with
+`deviceScaleFactor` matching its real pixel density, never to the raw
+required output pixel dimensions at `deviceScaleFactor: 1`** — the latter
+silently doubles (or more) how small a fixed-width-capped layout appears,
+and both this false alarm and the two code-side rounds above it happened
+because that distinction was missed.
+
 ## Scope decisions (v1)
 
 - **No bespoke background *image*.** `AppBackground` (see "Icon & title art"
