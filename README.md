@@ -33,12 +33,12 @@ flutter build apk --release    # debug-signed test APK
 3. **App icon & title art**: done — `assets/icon/icon.png` and
    `assets/title/title.png` are the real "WordHunt - Tra Từ" branded art;
    `flutter_launcher_icons` regenerates every mipmap size in CI.
-4. **Privacy policy**: drafted at `docs/privacy.html` (covers local score
-   storage, Play Games Services sign-in, and AdMob). Enable GitHub Pages for
-   this repo (Settings → Pages → Source: "Deploy from a branch" → branch
-   `main`, folder `/docs`) to get a public URL — Play Console requires one
-   before a listing can go live. Once enabled, it's
-   `https://nttqn.github.io/word-search-app/privacy.html`.
+4. **Privacy policy / Support / Marketing URL**: done — GitHub Pages is
+   enabled for this repo (branch `main`, folder `/docs`), serving:
+   - Privacy Policy: `https://nttqn.github.io/word-search-app/privacy.html`
+   - Support: `https://nttqn.github.io/word-search-app/support.html`
+   - Marketing (optional field, a simple landing page):
+     `https://nttqn.github.io/word-search-app/index.html`
 5. **Leaderboard (Android)**: code + IDs + release signing all done now —
    real leaderboard IDs from the user's Play Console project are in
    `_androidLeaderboardIds`, and the `PLAY_GAMES_APP_ID` GitHub secret is
