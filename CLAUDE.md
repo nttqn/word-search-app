@@ -667,3 +667,29 @@ tested via the same Playwright/web-preview technique used throughout this
 project — see `[[feedback_flutter_web_playwright_clicking]]` for why that's
 necessary at all (no DOM/semantics tree on Flutter web to query by text/
 role, has to click by pixel coordinate read off a screenshot).
+
+**Bug found right after shipping this: completing a puzzle on a real
+Android device sometimes showed no "Hoàn thành" dialog at all** — user
+report: found all 6/6 words on Basic, no ad, no error, screen just stayed
+on the grid. Reproducing the exact same puzzle completion on the web
+preview worked fine, which pointed at the two *new* `await`s this feature
+added right before `showDialog` in `_onPuzzleComplete`:
+`ScoreService.saveBest` (level mode) and `DailyChallengeService.
+recordCompletion` (daily mode) — both talk to shared_preferences, and a
+slow/failed platform-channel call there would silently block (or, if it
+throws, silently abort) the method before it ever reaches `showDialog`,
+with release mode swallowing the exception and leaving no visible trace.
+Root cause not fully pinned down (couldn't reproduce locally — no Android
+device, web preview's shared_preferences is pure-Dart with no platform
+channel to race or hang), but the fix doesn't need the root cause: wrapped
+every save/sync side effect in `_onPuzzleComplete` in a `try/catch` plus a
+3-second `.timeout()`, so a failure or hang in any of them can delay the
+dialog by at most ~3 seconds but can never prevent it from showing. Also
+added `.catchError((_) {})` to the per-word `ReviewService.onWordFound`
+call in `_onWordFound` for the same reason, even though an unawaited
+Future's exception shouldn't itself block anything — cheap insurance
+against noisy unhandled-exception logs. General lesson: any `await` placed
+between "the player finished an action" and "the UI that confirms it"
+is a point where a slow/flaky save can read as the entire feature being
+broken — best-effort side effects (score saves, streak writes, leaderboard
+submits) should never gate player-facing confirmation UI.

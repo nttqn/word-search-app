@@ -60,26 +60,50 @@ class _GameScreenState extends State<GameScreen> {
     // itself — finding a word in a normal level or the daily challenge is
     // what makes it eligible to show up in "Ôn tập" later. See
     // ReviewService's doc comment for why re-finding it early (before it's
-    // actually due) doesn't advance its box.
-    unawaited(ReviewService.instance.onWordFound(word.word));
+    // actually due) doesn't advance its box. `catchError` so a failed write
+    // here (shared_preferences hiccup, etc.) never surfaces as an unhandled
+    // async exception — this is a best-effort background update, not
+    // something the player is waiting on.
+    unawaited(ReviewService.instance.onWordFound(word.word).catchError((_) {}));
     if (_engine.isComplete) {
       _onPuzzleComplete();
     }
   }
 
+  /// A short budget for each save/sync side effect below. These talk to
+  /// shared_preferences or a network leaderboard, and a slow device or flaky
+  /// connection must never turn into the player staring at an unresponsive
+  /// screen after finishing a puzzle — the completion dialog always has to
+  /// show, with or without these having actually finished in time.
+  static const _sideEffectTimeout = Duration(seconds: 3);
+
   Future<void> _onPuzzleComplete() async {
     SoundService.instance.play(SoundEffect.win);
     final session = widget.session;
     String? extraMessage;
-    if (session.mode == GameMode.level) {
-      final level = session.level!;
-      await ScoreService.instance.saveBest(level, _engine.score);
-      unawaited(LeaderboardService.submitScore(level, _engine.score));
-    } else if (session.mode == GameMode.daily) {
-      final streak = await DailyChallengeService.instance.recordCompletion();
-      extraMessage = 'Chuỗi ngày chơi: $streak ngày 🔥';
-    } else if (session.mode == GameMode.review) {
-      extraMessage = 'Đã ôn tập ${_engine.grid.placedWords.length} từ!';
+    // Best-effort: saving a score/streak must never block — let alone
+    // silently swallow — the completion dialog the player is actually
+    // waiting to see. A thrown exception or a hung platform-channel call
+    // here (shared_preferences, Play Games/Game Center) used to do exactly
+    // that before this try/catch + timeout existed.
+    try {
+      if (session.mode == GameMode.level) {
+        final level = session.level!;
+        await ScoreService.instance
+            .saveBest(level, _engine.score)
+            .timeout(_sideEffectTimeout);
+        unawaited(LeaderboardService.submitScore(level, _engine.score));
+      } else if (session.mode == GameMode.daily) {
+        final streak = await DailyChallengeService.instance
+            .recordCompletion()
+            .timeout(_sideEffectTimeout);
+        extraMessage = 'Chuỗi ngày chơi: $streak ngày 🔥';
+      } else if (session.mode == GameMode.review) {
+        extraMessage = 'Đã ôn tập ${_engine.grid.placedWords.length} từ!';
+      }
+    } catch (_) {
+      // Swallow — the puzzle is still complete regardless of whether this
+      // particular save/sync succeeded.
     }
     AdsService.instance.maybeShowInterstitialAfterPuzzle();
     if (!mounted) return;
