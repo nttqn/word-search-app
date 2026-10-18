@@ -136,6 +136,31 @@ jobs:
           node tool/patch_signing.js
           grep -n -A5 'signingConfigs' android/app/build.gradle.kts android/app/build.gradle 2>/dev/null || true
 
+      # Prints the release keystore's SHA-1 straight into the build log —
+      # this is the exact value Play Games Services needs registered as an
+      # Android OAuth credential (Play Console → Play Games Services →
+      # Configuration → Credentials), and a sideloaded/CI-signed APK like
+      # this one is signed with THIS key directly (no Play App Signing
+      # re-signing involved, unlike an app installed via a Play Console
+      # testing track or the live Store — see
+      # [[feedback_play_games_signing_setup]] for that separate, easy-to-
+      # confuse failure mode). Reading it here means never having to touch
+      # the keystore password again just to answer "what SHA-1 do I
+      # register" — keytool needs it to open the keystore, but CI already
+      # has it as a secret, so no local/manual step is needed.
+      - name: Print release keystore SHA-1 (for Play Games Services)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          keytool -list -v \
+            -keystore android/app/upload-keystore.jks \
+            -alias "$KEY_ALIAS" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            | grep -A1 'SHA1:'
+
       - name: Install dependencies
         run: flutter pub get
 
