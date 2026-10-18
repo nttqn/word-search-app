@@ -12,7 +12,7 @@ void main() {
 
     setUp(() {
       engine = WordSearchEngine(
-        level: VocabLevel.basic,
+        shape: VocabLevel.basic.shape,
         bank: WordBanks.basic,
         random: Random(3),
       )..start();

@@ -10,7 +10,7 @@ void main() {
     for (final level in VocabLevel.values) {
       test('${level.name}: grid size and word count match the level config', () {
         final grid = GridGenerator.generate(
-          level: level,
+          shape: level.shape,
           bank: WordBanks.byLevel[level]!,
           random: Random(42),
         );
@@ -25,7 +25,7 @@ void main() {
 
       test('${level.name}: every placed word is actually spelled out in the grid', () {
         final grid = GridGenerator.generate(
-          level: level,
+          shape: level.shape,
           bank: WordBanks.byLevel[level]!,
           random: Random(7),
         );
@@ -41,7 +41,7 @@ void main() {
 
       test('${level.name}: no placed word uses a disallowed diagonal direction', () {
         final grid = GridGenerator.generate(
-          level: level,
+          shape: level.shape,
           bank: WordBanks.byLevel[level]!,
           random: Random(99),
         );
@@ -61,7 +61,7 @@ void main() {
 
     test('every grid cell is a single uppercase letter', () {
       final grid = GridGenerator.generate(
-        level: VocabLevel.basic,
+        shape: VocabLevel.basic.shape,
         bank: WordBanks.basic,
         random: Random(1),
       );

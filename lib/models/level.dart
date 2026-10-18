@@ -62,4 +62,26 @@ extension VocabLevelInfo on VocabLevel {
   /// Every other level allows the full 8 directions (orthogonal + all 4
   /// diagonals, each usable in both directions along its axis).
   bool get allowDiagonals => this != VocabLevel.basic;
+
+  PuzzleShape get shape => PuzzleShape(
+    gridSize: gridSize,
+    wordsPerPuzzle: wordsPerPuzzle,
+    allowDiagonals: allowDiagonals,
+  );
+}
+
+/// The grid dimensions a puzzle is built from, decoupled from [VocabLevel]
+/// so [GridGenerator]/[WordSearchEngine] can also build puzzles for modes
+/// that aren't a fixed difficulty tier (review, daily challenge) — see
+/// `GameSession` and CLAUDE.md's "Review mode & daily challenge" section.
+class PuzzleShape {
+  final int gridSize;
+  final int wordsPerPuzzle;
+  final bool allowDiagonals;
+
+  const PuzzleShape({
+    required this.gridSize,
+    required this.wordsPerPuzzle,
+    required this.allowDiagonals,
+  });
 }

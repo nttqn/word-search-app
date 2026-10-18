@@ -234,4 +234,12 @@ class WordBanks {
     VocabLevel.advanced: advanced,
     VocabLevel.expert: expert,
   };
+
+  /// Every word across every level, keyed by [VocabWord.upper] — lets
+  /// `ReviewService` rebuild a full `VocabWord` (incl. its Vietnamese
+  /// meaning) from just the word text it persisted to shared_preferences.
+  static final Map<String, VocabWord> allByUpper = {
+    for (final words in byLevel.values)
+      for (final w in words) w.upper: w,
+  };
 }

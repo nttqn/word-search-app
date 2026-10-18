@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../data/word_banks.dart';
 import '../game/grid_generator.dart';
 import '../game/word_search_engine.dart';
-import '../models/level.dart';
+import '../models/game_session.dart';
 import '../services/ads_service.dart';
+import '../services/daily_challenge_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/review_service.dart';
 import '../services/score_service.dart';
 import '../services/sound_service.dart';
 import '../widgets/app_background.dart';
@@ -17,8 +18,8 @@ import '../widgets/sound_toggle_button.dart';
 import '../widgets/word_list_widget.dart';
 
 class GameScreen extends StatefulWidget {
-  final VocabLevel level;
-  const GameScreen({super.key, required this.level});
+  final GameSession session;
+  const GameScreen({super.key, required this.session});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -32,8 +33,9 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     _engine = WordSearchEngine(
-      level: widget.level,
-      bank: WordBanks.byLevel[widget.level]!,
+      shape: widget.session.shape,
+      bank: widget.session.bank,
+      random: widget.session.random,
     )..start();
     _loadBanner();
     unawaited(LeaderboardService.signIn());
@@ -54,6 +56,12 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onWordFound(PlacedWord word) {
+    // Every mode feeds the spaced-repetition schedule, not just review mode
+    // itself — finding a word in a normal level or the daily challenge is
+    // what makes it eligible to show up in "Ôn tập" later. See
+    // ReviewService's doc comment for why re-finding it early (before it's
+    // actually due) doesn't advance its box.
+    unawaited(ReviewService.instance.onWordFound(word.word));
     if (_engine.isComplete) {
       _onPuzzleComplete();
     }
@@ -61,8 +69,18 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _onPuzzleComplete() async {
     SoundService.instance.play(SoundEffect.win);
-    await ScoreService.instance.saveBest(widget.level, _engine.score);
-    unawaited(LeaderboardService.submitScore(widget.level, _engine.score));
+    final session = widget.session;
+    String? extraMessage;
+    if (session.mode == GameMode.level) {
+      final level = session.level!;
+      await ScoreService.instance.saveBest(level, _engine.score);
+      unawaited(LeaderboardService.submitScore(level, _engine.score));
+    } else if (session.mode == GameMode.daily) {
+      final streak = await DailyChallengeService.instance.recordCompletion();
+      extraMessage = 'Chuỗi ngày chơi: $streak ngày 🔥';
+    } else if (session.mode == GameMode.review) {
+      extraMessage = 'Đã ôn tập ${_engine.grid.placedWords.length} từ!';
+    }
     AdsService.instance.maybeShowInterstitialAfterPuzzle();
     if (!mounted) return;
     await showDialog<void>(
@@ -71,11 +89,17 @@ class _GameScreenState extends State<GameScreen> {
       builder: (ctx) => _CompletionDialog(
         score: _engine.score,
         elapsedSeconds: _engine.elapsedSeconds,
-        onNewPuzzle: () {
-          SoundService.instance.play(SoundEffect.confirm);
-          Navigator.of(ctx).pop();
-          setState(() => _engine.start());
-        },
+        extraMessage: extraMessage,
+        // Review/daily puzzles are a fixed, already-due/seeded word set —
+        // "another one" doesn't mean the same thing it does for a level, so
+        // only offer it there.
+        onNewPuzzle: session.mode == GameMode.level
+            ? () {
+                SoundService.instance.play(SoundEffect.confirm);
+                Navigator.of(ctx).pop();
+                setState(() => _engine.start());
+              }
+            : null,
         onHome: () {
           SoundService.instance.play(SoundEffect.back);
           Navigator.of(ctx).pop();
@@ -162,7 +186,7 @@ class _GameScreenState extends State<GameScreen> {
                         _Hud(
                           engine: _engine,
                           onBack: _onBackPressed,
-                          level: widget.level,
+                          title: widget.session.title,
                           scale: scale,
                         ),
                         SizedBox(
@@ -219,13 +243,13 @@ class _GameScreenState extends State<GameScreen> {
 
 class _Hud extends StatelessWidget {
   final WordSearchEngine engine;
-  final VocabLevel level;
+  final String title;
   final VoidCallback onBack;
   final double scale;
 
   const _Hud({
     required this.engine,
-    required this.level,
+    required this.title,
     required this.onBack,
     required this.scale,
   });
@@ -244,24 +268,46 @@ class _Hud extends StatelessWidget {
         return Container(
           padding: EdgeInsets.fromLTRB(8, 8 * scale, 16, 8 * scale),
           color: Colors.black.withValues(alpha: 0.25),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: onBack,
-                icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 * scale),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: onBack,
+                    icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 * scale),
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13 * scale,
+                      ),
+                    ),
+                  ),
+                  const SoundToggleButton(),
+                ],
               ),
-              Expanded(
-                child: Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  spacing: 12,
-                  children: [
-                    _Stat(label: 'Từ', value: '${engine.foundWords.length}/${engine.grid.placedWords.length}', scale: scale),
-                    _Stat(label: 'Điểm', value: '${engine.score}', scale: scale),
-                    _Stat(label: 'Giờ', value: _formatTime(engine.elapsedSeconds), scale: scale),
-                  ],
-                ),
+              Row(
+                children: [
+                  SizedBox(width: 48 * scale),
+                  Expanded(
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceEvenly,
+                      spacing: 12,
+                      children: [
+                        _Stat(label: 'Từ', value: '${engine.foundWords.length}/${engine.grid.placedWords.length}', scale: scale),
+                        _Stat(label: 'Điểm', value: '${engine.score}', scale: scale),
+                        _Stat(label: 'Giờ', value: _formatTime(engine.elapsedSeconds), scale: scale),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 48 * scale),
+                ],
               ),
-              const SoundToggleButton(),
             ],
           ),
         );
@@ -301,14 +347,16 @@ class _Stat extends StatelessWidget {
 class _CompletionDialog extends StatelessWidget {
   final int score;
   final int elapsedSeconds;
-  final VoidCallback onNewPuzzle;
+  final String? extraMessage;
+  final VoidCallback? onNewPuzzle;
   final VoidCallback onHome;
 
   const _CompletionDialog({
     required this.score,
     required this.elapsedSeconds,
-    required this.onNewPuzzle,
     required this.onHome,
+    this.extraMessage,
+    this.onNewPuzzle,
   });
 
   @override
@@ -323,11 +371,19 @@ class _CompletionDialog extends StatelessWidget {
         children: [
           Text('Điểm: $score'),
           Text('Thời gian: $m:$s'),
+          if (extraMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              extraMessage!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
         ],
       ),
       actions: [
         TextButton(onPressed: onHome, child: const Text('Về trang chủ')),
-        FilledButton(onPressed: onNewPuzzle, child: const Text('Puzzle mới')),
+        if (onNewPuzzle != null)
+          FilledButton(onPressed: onNewPuzzle, child: const Text('Puzzle mới')),
       ],
     );
   }

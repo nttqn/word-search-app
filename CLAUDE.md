@@ -574,3 +574,96 @@ word list, HUD, buttons — keeps enough contrast; only a bright accent
 right at the top where the title sits) — without this change the image's
 faded edges would blend into a mismatched dark background instead of the
 bright sky-blue the art was actually drawn against.
+
+## Review mode & daily challenge (2026-10-18)
+
+The game had gone untouched for a month with zero retention mechanics — 208
+fixed vocab words, 4 difficulty tiers, nothing that gives a reason to come
+back tomorrow. Added two modes, user-requested in this order: a
+spaced-repetition review queue ("Ôn tập") and a daily-streak challenge
+("Thử thách hôm nay"), both surfaced as compact cards above the level list
+on `HomeScreen`.
+
+**Why `GameScreen` needed a bigger refactor than "add two new VocabLevel
+values".** `VocabLevel` is tightly coupled to `ScoreService` (best score per
+tier) and `LeaderboardService` (one Play Games/Game Center leaderboard ID
+per tier) — neither "review" nor "daily" has a sensible best-score/
+leaderboard identity the same way a difficulty tier does, and review mode's
+word list isn't even a fixed bank subset, it's whatever's due *today*.
+Instead:
+- **`lib/models/level.dart`** gained `PuzzleShape` (`gridSize`,
+  `wordsPerPuzzle`, `allowDiagonals`) — the grid-shape info `GridGenerator`/
+  `WordSearchEngine` actually need, decoupled from `VocabLevel` itself.
+  `VocabLevel.shape` derives one from a tier as before. `GridGenerator.
+  generate` and `WordSearchEngine`'s constructor now take `PuzzleShape
+  shape` instead of `VocabLevel level`.
+- **`lib/models/game_session.dart`** (new) is what `GameScreen` actually
+  takes now: `GameSession{mode, title, shape, bank, level, random}`. `mode`
+  (`GameMode.level/review/daily`) is what `GameScreen` branches on for
+  post-completion side effects. `level` is only non-null for
+  `GameMode.level` (gates the `ScoreService`/`LeaderboardService` calls);
+  `random` is only set by the daily challenge (see below).
+  `GameSession.level(VocabLevel)` and `GameSession.review(List<VocabWord>)`
+  are the two factories; the daily session is built by
+  `DailyChallengeService.buildTodaySession()` directly since it needs
+  date-seeded randomness `GameSession`'s constructor alone can't derive.
+
+**`lib/services/review_service.dart`** — a Leitner-style spaced-repetition
+schedule, persisted as one JSON blob in shared_preferences
+(`review_words_v1`, `{WORD_UPPER: {box, due}}`). `onWordFound(word)` is
+called from `GameScreen._onWordFound` for **every** mode, not just review —
+finding a word in a normal level or the daily challenge is what makes it
+eligible to show up in Ôn tập later:
+- Word never seen before → enters at box 1, due in 1 day.
+- Word currently **due** and found again → promoted to the next box (1/2/4/
+  7/14/30-day intervals, caps at the last one rather than growing forever).
+- Word found again **before** it's due → no change. This matters: without
+  it, replaying a level you just finished would keep pushing its words
+  further out on the schedule for free, defeating the entire point of
+  spaced repetition (you'd never actually be tested on a word you're
+  about to forget).
+- `dueWords({limit})`/`dueCount()` read the schedule; `GameSession.review`
+  sizes its grid off the *longest due word* (`+3`, clamped 10-15) since due
+  words can span every difficulty tier's word-length range at once, unlike
+  a normal level's bank.
+- Review mode's "puzzle complete" only shows a "Đã ôn tập N từ!" message —
+  no score/leaderboard save, no "Puzzle mới" button (the due set is
+  whatever's due *right now*; offering another random round on the same
+  button would conflate "another review session" with "review mode has
+  its own replayable puzzles" which it deliberately doesn't).
+- The service caches its parsed state in memory after the first read
+  (`_cache`) since it's the sole writer during normal app use — tests that
+  reseed shared_preferences's mock store between cases need
+  `resetCacheForTesting()` (`@visibleForTesting`) or they'd see a previous
+  test's stale cache instead of the new mock values.
+
+**`lib/services/daily_challenge_service.dart`** — one deterministic puzzle
+per calendar day (Wordle-style: same grid all day regardless of how many
+times the player backs out and reopens it), via `Random(seed)` where
+`seed = year*10000 + month*100 + day`. The difficulty tier rotates by
+`now.weekday % 4` so the daily isn't always the same size. Streak tracking
+(`daily_last_completed_date`, `daily_streak_current`, `daily_streak_longest`
+in shared_preferences): `recordCompletion()` only advances the streak the
+*first* time it's called on a given day (idempotent for re-triggers),
+extends it by 1 if the last completion was exactly yesterday, and resets to
+1 if a day was missed. `currentStreak()` re-derives "is the streak still
+alive" from the last-completed date on every call (today or yesterday =
+alive, anything older = reports 0) rather than needing a background job to
+expire it — there's no way to run code "at midnight" in a mobile app that
+isn't currently open, so the expiry has to be computed lazily whenever
+someone actually asks.
+
+**Testing**: `test/review_service_test.dart` and
+`test/daily_challenge_service_test.dart` cover the box-promotion/due-gating
+and streak-continuation/reset logic directly (pure `shared_preferences`
+mock + real `DateTime.now()`, no day-boundary mocking needed since every
+case computes its "yesterday"/"due date" off the same real clock the
+service uses) — this is exactly the kind of date-math logic that's easy to
+get subtly wrong (the "found early doesn't advance the box" rule, the
+"completing twice today doesn't double the streak" rule), so it's unit
+tested rather than only eyeballed through the UI. The UI wiring itself
+(home screen cards, navigation, empty-state snackbar, HUD title) was smoke-
+tested via the same Playwright/web-preview technique used throughout this
+project — see `[[feedback_flutter_web_playwright_clicking]]` for why that's
+necessary at all (no DOM/semantics tree on Flutter web to query by text/
+role, has to click by pixel coordinate read off a screenshot).

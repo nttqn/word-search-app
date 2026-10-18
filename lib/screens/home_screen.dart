@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../models/game_session.dart';
 import '../models/level.dart';
 import '../services/ads_service.dart';
+import '../services/daily_challenge_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/review_service.dart';
 import '../services/score_service.dart';
 import '../services/sound_service.dart';
 import '../widgets/app_background.dart';
@@ -20,12 +23,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   BannerAd? _banner;
   Map<VocabLevel, int> _bestScores = const {};
+  int _dueCount = 0;
+  int _dailyStreak = 0;
+  bool _dailyCompletedToday = false;
 
   @override
   void initState() {
     super.initState();
     _loadBanner();
-    _loadBestScores();
+    _refreshProgress();
   }
 
   void _loadBanner() {
@@ -35,20 +41,62 @@ class _HomeScreenState extends State<HomeScreen> {
     _banner = banner;
   }
 
-  Future<void> _loadBestScores() async {
+  Future<void> _refreshProgress() async {
     final scores = <VocabLevel, int>{};
     for (final level in VocabLevel.values) {
       scores[level] = await ScoreService.instance.loadBest(level);
     }
-    if (mounted) setState(() => _bestScores = scores);
+    final dueCount = await ReviewService.instance.dueCount();
+    final streak = await DailyChallengeService.instance.currentStreak();
+    final completedToday = await DailyChallengeService.instance
+        .isCompletedToday();
+    if (!mounted) return;
+    setState(() {
+      _bestScores = scores;
+      _dueCount = dueCount;
+      _dailyStreak = streak;
+      _dailyCompletedToday = completedToday;
+    });
   }
 
   Future<void> _openLevel(VocabLevel level) async {
     SoundService.instance.play(SoundEffect.confirm);
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => GameScreen(level: level)),
+      MaterialPageRoute(builder: (_) => GameScreen(session: GameSession.level(level))),
     );
-    _loadBestScores();
+    _refreshProgress();
+  }
+
+  Future<void> _openReview() async {
+    SoundService.instance.play(SoundEffect.confirm);
+    final words = await ReviewService.instance.dueWords();
+    if (!mounted) return;
+    if (words.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa có từ nào cần ôn tập — chơi thêm vài cấp độ nhé!'),
+        ),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(session: GameSession.review(words)),
+      ),
+    );
+    _refreshProgress();
+  }
+
+  Future<void> _openDaily() async {
+    SoundService.instance.play(SoundEffect.confirm);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(
+          session: DailyChallengeService.instance.buildTodaySession(),
+        ),
+      ),
+    );
+    _refreshProgress();
   }
 
   Future<void> _openLeaderboard(VocabLevel level) async {
@@ -105,6 +153,44 @@ class _HomeScreenState extends State<HomeScreen> {
                                 vertical: 8,
                               ),
                               children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _ActionCard(
+                                        icon: Icons.refresh,
+                                        iconColor: const Color(0xFF9C6DE8),
+                                        title: 'Ôn tập',
+                                        subtitle: _dueCount > 0
+                                            ? '$_dueCount từ cần ôn'
+                                            : 'Chưa có từ cần ôn',
+                                        badge: _dueCount > 0 ? '$_dueCount' : null,
+                                        scale: scale,
+                                        onTap: _openReview,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10 * scale),
+                                    Expanded(
+                                      child: _ActionCard(
+                                        icon: _dailyCompletedToday
+                                            ? Icons.check_circle
+                                            : Icons.local_fire_department,
+                                        iconColor: const Color(0xFFFF8A3D),
+                                        title: 'Thử thách hôm nay',
+                                        subtitle: _dailyCompletedToday
+                                            ? 'Đã hoàn thành hôm nay'
+                                            : (_dailyStreak > 0
+                                                  ? 'Chuỗi: $_dailyStreak ngày'
+                                                  : 'Chơi ngay!'),
+                                        badge: _dailyStreak > 0
+                                            ? '$_dailyStreak🔥'
+                                            : null,
+                                        scale: scale,
+                                        onTap: _openDaily,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 8 * scale),
                                 for (final level in VocabLevel.values)
                                   _LevelCard(
                                     level: level,
@@ -135,6 +221,99 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact entry point for a non-level mode (review queue, daily
+/// challenge) — visually lighter than [_LevelCard] (no leaderboard button,
+/// no grid-size badge) since it sits two-up in a [Row] above the level
+/// list rather than full-width.
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String? badge;
+  final double scale;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.scale,
+    required this.onTap,
+    this.badge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.white.withValues(alpha: 0.08),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 * scale,
+            vertical: 12 * scale,
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: iconColor, size: 26 * scale),
+                  SizedBox(height: 6 * scale),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5 * scale,
+                    ),
+                  ),
+                  SizedBox(height: 2 * scale),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11 * scale,
+                    ),
+                  ),
+                ],
+              ),
+              if (badge != null)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 7 * scale,
+                      vertical: 2 * scale,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD54F),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badge!,
+                      style: TextStyle(
+                        color: const Color(0xFF1A2A3A),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11 * scale,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

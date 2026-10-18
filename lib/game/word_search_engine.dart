@@ -17,13 +17,13 @@ class WordSearchEngine extends ChangeNotifier {
   // private named parameter — hence the public `bank` param assigned to
   // `_bank` below instead.
   WordSearchEngine({
-    required this.level,
+    required this.shape,
     required List<VocabWord> bank,
     Random? random,
   }) : _bank = bank, // ignore: prefer_initializing_formals
        _random = random ?? Random();
 
-  final VocabLevel level;
+  final PuzzleShape shape;
   final List<VocabWord> _bank;
   final Random _random;
 
@@ -48,7 +48,7 @@ class WordSearchEngine extends ChangeNotifier {
   /// dialog).
   void start() {
     _ticker?.cancel();
-    grid = GridGenerator.generate(level: level, bank: _bank, random: _random);
+    grid = GridGenerator.generate(shape: shape, bank: _bank, random: _random);
     foundWords.clear();
     score = 0;
     elapsedSeconds = 0;

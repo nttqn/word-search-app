@@ -56,21 +56,21 @@ class GridGenerator {
 
   static const int _maxAttemptsPerWord = 60;
 
-  /// Builds a fresh puzzle: picks [level.wordsPerPuzzle] random words from
+  /// Builds a fresh puzzle: picks [shape.wordsPerPuzzle] random words from
   /// [bank] (skipping any longer than the grid), places each one (retrying
   /// random position/direction up to [_maxAttemptsPerWord] times; a word
   /// that never fits is dropped and backfilled from the remaining bank), then
   /// fills every empty cell with a random letter.
   static WordSearchGrid generate({
-    required VocabLevel level,
+    required PuzzleShape shape,
     required List<VocabWord> bank,
     Random? random,
   }) {
     final rng = random ?? Random();
-    final size = level.gridSize;
+    final size = shape.gridSize;
     final directions = [
       ..._orthogonalDirections,
-      if (level.allowDiagonals) ..._diagonalDirections,
+      if (shape.allowDiagonals) ..._diagonalDirections,
     ];
 
     final candidates = bank.where((w) => w.upper.length <= size).toList()
@@ -80,7 +80,7 @@ class GridGenerator {
     final placed = <PlacedWord>[];
 
     var i = 0;
-    while (placed.length < level.wordsPerPuzzle && i < candidates.length) {
+    while (placed.length < shape.wordsPerPuzzle && i < candidates.length) {
       final word = candidates[i++];
       final cells = _tryPlace(grid, word.upper, size, directions, rng);
       if (cells != null) {
