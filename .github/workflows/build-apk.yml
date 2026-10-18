@@ -149,12 +149,14 @@ jobs:
       # register" — keytool needs it to open the keystore, but CI already
       # has it as a secret, so no local/manual step is needed.
       - name: Print release keystore SHA-1 (for Play Games Services)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          if [ ! -f android/app/upload-keystore.jks ]; then
+            echo "No release keystore configured — skipping SHA-1 print."
+            exit 0
+          fi
           keytool -list -v \
             -keystore android/app/upload-keystore.jks \
             -alias "$KEY_ALIAS" \
