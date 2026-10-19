@@ -1,10 +1,9 @@
 import 'dart:math';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../data/word_banks.dart';
 import '../models/game_session.dart';
 import '../models/level.dart';
+import 'safe_prefs.dart';
 
 /// One daily challenge puzzle + the player's completion streak across days.
 ///
@@ -42,17 +41,24 @@ class DailyChallengeService {
     );
   }
 
+  /// Defaults to "not completed" (`false`) when shared_preferences can't be
+  /// read in time — letting a player open today's puzzle again is a far
+  /// safer failure mode than a button that silently never responds, which
+  /// is exactly what an unguarded read here caused on a real device.
   Future<bool> isCompletedToday() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await safeSharedPrefs();
+    if (prefs == null) return false;
     return prefs.getString(_lastCompletedKey) == _dateKey(DateTime.now());
   }
 
   /// Current streak as of right now — 0 if the player missed a day (the
   /// stored counter itself resets lazily on the next completion, not here,
   /// so this re-derives "is it still alive" from the last-completed date
-  /// without needing a separate background job).
+  /// without needing a separate background job), or if shared_preferences
+  /// couldn't be read in time.
   Future<int> currentStreak() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await safeSharedPrefs();
+    if (prefs == null) return 0;
     final last = prefs.getString(_lastCompletedKey);
     if (last == null) return 0;
     final today = DateTime.now();
@@ -66,9 +72,13 @@ class DailyChallengeService {
 
   /// Call once the daily puzzle is fully solved. Returns the new streak
   /// count. Safe to call more than once on the same day — only the first
-  /// completion of a given day advances the streak.
+  /// completion of a given day advances the streak. Returns 1 (without
+  /// persisting anything) if shared_preferences can't be read/written in
+  /// time — the player still sees *a* streak number rather than the
+  /// completion flow stalling on this write.
   Future<int> recordCompletion() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await safeSharedPrefs();
+    if (prefs == null) return 1;
     final today = DateTime.now();
     final todayKey = _dateKey(today);
     final last = prefs.getString(_lastCompletedKey);

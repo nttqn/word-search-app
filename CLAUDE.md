@@ -736,3 +736,62 @@ one attempt per day, so `HomeScreen._openDaily()` now checks
 `DailyChallengeService.isCompletedToday()` first and shows a SnackBar
 ("đã hoàn thành hôm nay... quay lại vào ngày mai nhé!") instead of
 re-opening the puzzle, rather than silently letting it restart.
+
+**Same device, next round: sound came back (confirming the reorder fix
+above worked), but best scores still didn't save — and the daily
+challenge button stopped responding entirely.** The second symptom was
+new and much more telling: it pointed at code this session had just
+written (`HomeScreen._openDaily()`'s `isCompletedToday()` check, added
+minutes earlier for the re-entry fix above), called with **no timeout at
+all** — if shared_preferences hangs on this device, that call just never
+resolves, and the button looks permanently dead rather than merely slow.
+That the daily button broke from a single, uncontended prefs *read* (no
+other shared_preferences traffic anywhere near it) undercuts a pure
+"concurrent writes overwhelm the channel" theory and points more at
+shared_preferences itself being unreliable *on this specific device* for
+this build — though a real contention angle was also real and worth
+fixing regardless (see below). **Fixed 2026-10-19**, two parts:
+1. **Every shared_preferences call in this app now goes through
+   `lib/services/safe_prefs.dart`'s `safeSharedPrefs()`** instead of
+   calling `SharedPreferences.getInstance()` directly — wraps it in a 3s
+   timeout + catch, returning `null` on failure instead of ever hanging or
+   throwing. `ScoreService`, `ReviewService`, and `DailyChallengeService`
+   were all converted; each method now has an explicit, documented
+   fallback for the "couldn't read/write" case (e.g.
+   `isCompletedToday()` → `false`, so a prefs failure *opens* today's
+   puzzle rather than permanently blocking the button — the safer
+   failure direction).
+2. **Collapsed `ReviewService`'s per-word writes into one batched write
+   per puzzle.** `GameScreen` used to call `ReviewService.onWordFound`
+   once per word, unawaited, *as each word was found* — for a 12-word
+   Expert puzzle that's up to 12 concurrent, unsequenced
+   shared_preferences round trips, with the far more important score-save
+   call landing right in the middle of that burst for the puzzle's last
+   word. Now `GameScreen` only accumulates found words in memory
+   (`_foundWordsThisSession`) and persists them with one
+   `ReviewService.onWordsFound(...)` call from `dispose()` — which runs
+   only after the completion dialog has already resolved, so it can never
+   again land anywhere near the score save. `ReviewService.onWordFound`
+   (singular) is kept for call sites that genuinely have one word at a
+   time, and for tests (`test/review_service_test.dart` covers
+   `onWordsFound` directly: records every word from one write, and
+   promotes an already-due word the same as the singular method does).
+
+**Not independently confirmed which of the two (device-level
+shared_preferences unreliability vs. this app's own write-volume/timing)
+was the actual root cause** — no access to a real device or its logcat in
+this environment, and both fixes are warranted regardless of which one
+turns out to matter more: (1) makes every call fail-safe so NOTHING can
+ever look "dead" again no matter the cause, (2) removes a real
+self-inflicted contention source this session's own features introduced
+that didn't exist in 1.0.0 (the version the user confirmed didn't have
+the score-saving bug). If a future report shows scores *still* not
+saving after this, the next places to look: whether `safeSharedPrefs`'s
+3s timeout is simply too short for this device, or whether the
+`shared_preferences` dependency itself drifted to a problematic version
+between when 1.0.0 was built and now (no `pubspec.lock` is committed —
+see "Android project is generated, not committed" above — so every CI
+build re-resolves to whatever's latest-compatible at build time, which
+is a real, if so-far-unconfirmed, way for this kind of regression to
+silently sneak in between builds with no corresponding code change at
+all).

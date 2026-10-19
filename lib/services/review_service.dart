@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/word_banks.dart';
 import '../models/vocab_word.dart';
+import 'safe_prefs.dart';
 
 /// One tracked word's spaced-repetition state: which "box" it's in (a
 /// Leitner-style scheme — found again on schedule promotes it to a longer
@@ -40,6 +40,7 @@ class ReviewService {
   // Days until next review at each box, 1-indexed; stays at the last value
   // once a word reaches the top box rather than growing unboundedly.
   static const List<int> _intervalDays = [1, 2, 4, 7, 14, 30];
+  static const int _firstBoxDays = 1;
 
   Map<String, _ReviewEntry>? _cache;
 
@@ -53,9 +54,9 @@ class ReviewService {
   Future<Map<String, _ReviewEntry>> _load() async {
     final cached = _cache;
     if (cached != null) return cached;
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey);
     final map = <String, _ReviewEntry>{};
+    final prefs = await safeSharedPrefs();
+    final raw = prefs?.getString(_prefsKey);
     if (raw != null) {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       for (final entry in decoded.entries) {
@@ -69,19 +70,16 @@ class ReviewService {
   }
 
   Future<void> _save(Map<String, _ReviewEntry> map) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await safeSharedPrefs();
+    if (prefs == null) return;
     final encoded = jsonEncode({
       for (final entry in map.entries) entry.key: entry.value.toJson(),
     });
     await prefs.setString(_prefsKey, encoded);
   }
 
-  /// Call whenever a word is found in any game mode — adds it to the
-  /// schedule the first time, or promotes it if it was due.
-  Future<void> onWordFound(VocabWord word) async {
-    final map = await _load();
+  void _applyFound(Map<String, _ReviewEntry> map, VocabWord word, DateTime now) {
     final key = word.upper;
-    final now = DateTime.now();
     final existing = map[key];
     if (existing == null) {
       map[key] = _ReviewEntry(1, now.add(const Duration(days: _firstBoxDays)));
@@ -92,10 +90,39 @@ class ReviewService {
         now.add(Duration(days: _intervalDays[nextBox - 1])),
       );
     }
+  }
+
+  /// Adds/promotes a single word and persists immediately. Prefer
+  /// [onWordsFound] when recording more than one word at once (e.g. a
+  /// finished puzzle) — this one still exists for callers that genuinely
+  /// only have one word at a time, and for tests.
+  Future<void> onWordFound(VocabWord word) async {
+    final map = await _load();
+    _applyFound(map, word, DateTime.now());
     await _save(map);
   }
 
-  static const int _firstBoxDays = 1;
+  /// Adds/promotes every word in one shot with a single shared_preferences
+  /// write, instead of one write per word. `GameScreen` used to call
+  /// [onWordFound] once per word *as it was found*, unawaited — for a
+  /// 12-word Expert puzzle that's up to 12 concurrent, un-sequenced
+  /// shared_preferences read-then-write round trips firing in quick
+  /// succession, right as the far more important score-save call for the
+  /// same puzzle was also trying to go through. A real-device report (score
+  /// no longer saving after this feature shipped, not present in the build
+  /// before it) matches that shape closely enough that `GameScreen` now
+  /// batches every found word from a session into one call here, fired
+  /// from `dispose()` — after the completion dialog has already resolved,
+  /// so this can never compete with anything time-sensitive again.
+  Future<void> onWordsFound(Iterable<VocabWord> words) async {
+    if (words.isEmpty) return;
+    final map = await _load();
+    final now = DateTime.now();
+    for (final word in words) {
+      _applyFound(map, word, now);
+    }
+    await _save(map);
+  }
 
   /// Up to [limit] words that are due for review right now, most-overdue
   /// first. Words whose text no longer matches any current bank entry (a

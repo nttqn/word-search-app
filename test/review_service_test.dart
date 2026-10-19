@@ -63,5 +63,35 @@ void main() {
 
       expect(await ReviewService.instance.dueCount(), 1);
     });
+
+    test('onWordsFound records every word from a single batched write', () async {
+      const cloud = VocabWord('cloud', 'đám mây');
+      const storm = VocabWord('storm', 'cơn bão');
+
+      await ReviewService.instance.onWordsFound([apple, cloud, storm]);
+
+      // None due yet (just entered box 1), but all three must have actually
+      // been written — reload via a fresh cache to prove it persisted
+      // rather than only living in this instance's in-memory map.
+      ReviewService.instance.resetCacheForTesting();
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('review_words_v1')!;
+      expect(raw, contains('APPLE'));
+      expect(raw, contains('CLOUD'));
+      expect(raw, contains('STORM'));
+    });
+
+    test('onWordsFound promotes already-due words the same as onWordFound', () async {
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      SharedPreferences.setMockInitialValues({
+        'review_words_v1':
+            '{"APPLE": {"box": 1, "due": "${yesterday.toIso8601String()}"}}',
+      });
+
+      await ReviewService.instance.onWordsFound([apple]);
+      final due = await ReviewService.instance.dueWords();
+
+      expect(due, isEmpty);
+    });
   });
 }

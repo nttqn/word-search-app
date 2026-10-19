@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../game/grid_generator.dart';
 import '../game/word_search_engine.dart';
 import '../models/game_session.dart';
+import '../models/vocab_word.dart';
 import '../services/ads_service.dart';
 import '../services/daily_challenge_service.dart';
 import '../services/leaderboard_service.dart';
@@ -28,6 +29,16 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   late final WordSearchEngine _engine;
   BannerAd? _banner;
+  // Every mode feeds the spaced-repetition schedule, not just review mode
+  // itself — finding a word in a normal level or the daily challenge is
+  // what makes it eligible to show up in "Ôn tập" later. Accumulated here
+  // and persisted as ONE batched write in dispose(), rather than one
+  // shared_preferences write per word as it's found: a real-device report
+  // (high scores no longer saving, only after this feature shipped) points
+  // at that per-word write pattern contending with the far more important
+  // score-save call for the same puzzle. See ReviewService.onWordsFound's
+  // doc comment for the full story.
+  final List<VocabWord> _foundWordsThisSession = [];
 
   @override
   void initState() {
@@ -50,21 +61,14 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    unawaited(ReviewService.instance.onWordsFound(_foundWordsThisSession));
     _engine.dispose();
     _banner?.dispose();
     super.dispose();
   }
 
   void _onWordFound(PlacedWord word) {
-    // Every mode feeds the spaced-repetition schedule, not just review mode
-    // itself — finding a word in a normal level or the daily challenge is
-    // what makes it eligible to show up in "Ôn tập" later. See
-    // ReviewService's doc comment for why re-finding it early (before it's
-    // actually due) doesn't advance its box. `catchError` so a failed write
-    // here (shared_preferences hiccup, etc.) never surfaces as an unhandled
-    // async exception — this is a best-effort background update, not
-    // something the player is waiting on.
-    unawaited(ReviewService.instance.onWordFound(word.word).catchError((_) {}));
+    _foundWordsThisSession.add(word.word);
     if (_engine.isComplete) {
       _onPuzzleComplete();
     }
