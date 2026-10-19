@@ -1,7 +1,7 @@
 name: wordhunt
 description: "WordHunt - Tra Từ: an English vocabulary word-search game."
 publish_to: 'none'
-version: 1.0.1+9
+version: 1.0.1+10
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -12,6 +12,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_mobile_ads: ^9.0.0
   shared_preferences: ^2.2.3
+  # Pinned: 2.5.0 (2026-10-17) rewrote the Android side on Pigeon JNI, and in
+  # this app's R8-minified release build it broke getInstance() on a real
+  # device — scores never saved, daily-challenge completion never persisted.
+  # 2.4.28 is the last pre-JNI release (what every 1.0.0 build used). See
+  # CLAUDE.md before unpinning.
+  shared_preferences_android: 2.4.28
   games_services: ^5.3.0
   flame_audio: ^2.12.2
 

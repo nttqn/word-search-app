@@ -795,3 +795,57 @@ build re-resolves to whatever's latest-compatible at build time, which
 is a real, if so-far-unconfirmed, way for this kind of regression to
 silently sneak in between builds with no corresponding code change at
 all).
+
+### ROOT CAUSE FOUND (2026-10-19): `shared_preferences_android` 2.5.0
+
+After 1.0.1+9 the user reported scores *still* showing 0 — but this time
+with a decisive detail: the same finished puzzle **did** appear on the
+Play Games leaderboard. So the score was computed correctly and
+`_onPuzzleComplete` ran all the way through; only the *local* write
+failed. And the daily challenge kept replaying, i.e. `recordCompletion()`
+never persisted either. Every symptom in this whole saga (no dialog,
+silent sound, scores at 0, daily replaying, dead daily button) is
+explained by one thing: `SharedPreferences.getInstance()` never
+completing on this device. In the legacy `shared_preferences` API, the
+first `getInstance()` call stores a static `Completer`; if that first
+call hangs, **every** later call returns the same never-completing
+future — so once it breaks, it's broken for the whole app session.
+
+The user's "1.0.0 didn't have this bug" was the key. Diffing dependency
+resolutions (not code) found it: **`shared_preferences_android` 2.5.0 was
+published 2026-10-17** with the changelog entry *"Updates internal
+implementation to use Pigeon JNI"* — and the first 1.0.1 build was
+2026-10-18. Since `pubspec.lock` is gitignored, CI resolved 2.5.0 fresh;
+every 1.0.0 build (September) had gotten 2.4.28. Nothing else relevant
+changed — `path_provider_android`, the only other JNI plugin here, has
+been on JNI since 2026-04 and worked fine in 1.0.0 too.
+
+**Fix**: pinned `shared_preferences_android: 2.4.28` as a direct
+dependency in `pubspec.yaml` (comment there explains why). The exact
+mechanism of 2.5.0's failure isn't confirmed (R8 vs. a plain bug in a
+1-day-old release — the `io.flutter.plugins.sharedpreferences.**` keep
+rule added in 1.0.1+8 did *not* fix it, which argues against pure R8
+stripping); pinning sidesteps the question entirely. **Don't unpin
+without testing a real release APK on a real device** — no part of this
+project's local/CI/web testing caught it.
+
+**Corrections to the hypotheses above, for whoever reads this next**:
+- The DataStore theory was wrong — the legacy `SharedPreferences` API
+  this app uses is backed by native Android `SharedPreferences`, not
+  DataStore (only the newer `SharedPreferencesAsync` API uses DataStore).
+  The DataStore/sharedpreferences ProGuard keep rules added on that
+  theory were removed again from `tool/proguard-rules-extra.pro`.
+- The "concurrent ReviewService writes contend with the score save"
+  theory was at most a minor factor. Batching them into one write from
+  `dispose()` is still a sensible design and was kept, as were
+  `safeSharedPrefs()` and the `SoundService` reorder — they're genuine
+  robustness improvements (any future prefs failure now degrades
+  gracefully instead of hanging UI), just not the actual fix.
+
+**Lesson**: when a user says "the old version didn't have this bug" and
+the code diff doesn't obviously explain it, diff the *resolved
+dependency versions* between the two builds before theorizing further —
+with no committed lockfile, a transitive plugin release between builds
+is a real, invisible code change. Check a suspect package's release
+dates against build dates with
+`curl -s https://pub.dev/api/packages/<name>` (versions[].published).
