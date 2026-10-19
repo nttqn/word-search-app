@@ -38,9 +38,13 @@ class SoundService {
   final Map<SoundEffect, AudioPool> _pools = {};
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    enabledNotifier.value = prefs.getBool(_enabledKey) ?? true;
-
+    // Audio pools load first, independent of the mute preference below —
+    // on a real device where shared_preferences hangs or throws (seen in
+    // the wild, see CLAUDE.md), this used to be awaited *before* loading
+    // any sound at all, which left every effect permanently silent for
+    // the entire session (the `await` here never returned, so the pool
+    // loop below never even started). Sound playing shouldn't depend on
+    // whether the mute preference can be read.
     for (final entry in _files.entries) {
       try {
         final pool = await FlameAudio.createPool(
@@ -55,6 +59,16 @@ class SoundService {
         // _pools has no entry for it).
       }
     }
+
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 5),
+      );
+      enabledNotifier.value = prefs.getBool(_enabledKey) ?? true;
+    } catch (_) {
+      // Keep the default (enabled) — a failed/slow preference read must
+      // never leave sound effectively stuck off for the whole session.
+    }
   }
 
   void play(SoundEffect effect) {
@@ -63,8 +77,17 @@ class SoundService {
   }
 
   Future<void> toggle() async {
+    // Flips immediately regardless of what happens below — the toggle must
+    // always feel instant; only whether it's *remembered* next launch
+    // depends on this save succeeding.
     enabledNotifier.value = !enabledNotifier.value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_enabledKey, enabledNotifier.value);
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 5),
+      );
+      await prefs.setBool(_enabledKey, enabledNotifier.value);
+    } catch (_) {
+      // Not persisted this time — the in-memory toggle still took effect.
+    }
   }
 }

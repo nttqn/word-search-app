@@ -89,6 +89,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openDaily() async {
     SoundService.instance.play(SoundEffect.confirm);
+    // Without this check, re-entering after already finishing today's
+    // challenge silently rebuilt the exact same puzzle from scratch (0
+    // found words, 0 score, timer restarted) — indistinguishable from the
+    // player's progress having been lost, even though the streak itself
+    // was unaffected underneath. A daily challenge only makes sense as a
+    // one-shot per day, so block re-entry instead of quietly replaying it.
+    final completedToday = await DailyChallengeService.instance.isCompletedToday();
+    if (!mounted) return;
+    if (completedToday) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn đã hoàn thành thử thách hôm nay rồi — quay lại vào ngày mai nhé! 🔥'),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GameScreen(

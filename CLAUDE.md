@@ -693,3 +693,46 @@ between "the player finished an action" and "the UI that confirms it"
 is a point where a slow/flaky save can read as the entire feature being
 broken — best-effort side effects (score saves, streak writes, leaderboard
 submits) should never gate player-facing confirmation UI.
+
+**Follow-up report, same real device: "mất âm thanh" (all sound gone) and
+best scores silently not saving.** These two turned out to likely share
+one root cause with the bug above — `SoundService.init()` used to do
+`await SharedPreferences.getInstance()` **before** loading any audio pool
+at all (`lib/services/sound_service.dart`); if that call hangs or throws
+on this device the same way `ScoreService.saveBest` apparently does, the
+`for` loop that actually loads every sound effect never even starts,
+leaving the whole session permanently silent — not just the completion
+jingle. The previous fix's `try/catch` + timeout around `ScoreService.
+saveBest` means a save failure there is now invisible (the dialog shows
+either way) rather than visibly blocking anything, which is *why* the
+score-not-saving symptom only became noticeable now instead of looking
+like the same original bug. **Fixed 2026-10-19**: reordered `SoundService.
+init()` to load every audio pool first, independent of the mute
+preference, which is now read *after* with its own try/catch + 5s timeout
+(falls back to enabled, never to silently-stuck-off); `toggle()` got the
+same treatment, flipping `enabledNotifier` immediately and only
+best-effort persisting it. Also added ProGuard keep rules in
+`tool/proguard-rules-extra.pro` for `io.flutter.plugins.sharedpreferences.**`
+and `androidx.datastore.*.**` — a real possibility given this exact
+"works everywhere except a real release APK" symptom shape already has
+precedent in this app (see the WorkManager rule above, and
+`[[feedback_admob_workmanager_r8]]`): `shared_preferences_android` backs
+onto Jetpack DataStore internally, and R8 silently stripping its
+plugin-registration or DataStore internals in a `minifyEnabled true`
+release build — but never in debug/CI/web testing, which is exactly where
+this was previously verified — would produce precisely this profile.
+**Not independently confirmed as the actual root cause** (no access to a
+real device or its logcat in this environment); the keep rules are cheap
+insurance that can't make anything worse, and the `SoundService`/
+`ScoreService` resilience fixes stand on their own regardless of why
+shared_preferences might be failing.
+
+**Third report in the same batch: re-opening the daily challenge after
+already completing it today just replayed the same puzzle from 0/0/00:00**
+— indistinguishable from the player's progress having vanished, even
+though the streak counter underneath was untouched (`recordCompletion()`
+was already idempotent per-day). A daily challenge is only meaningful as
+one attempt per day, so `HomeScreen._openDaily()` now checks
+`DailyChallengeService.isCompletedToday()` first and shows a SnackBar
+("đã hoàn thành hôm nay... quay lại vào ngày mai nhé!") instead of
+re-opening the puzzle, rather than silently letting it restart.
