@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../game/word_search_engine.dart';
+import '../services/pronunciation_service.dart';
 
 /// The word clue list: strikes a word through once found, revealing its
 /// Vietnamese meaning right underneath — that reveal is the actual teaching
@@ -29,7 +30,9 @@ class _WordListWidgetState extends State<WordListWidget> {
   void initState() {
     super.initState();
     _controller.addListener(_updateScrollAffordance);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollAffordance());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _updateScrollAffordance(),
+    );
   }
 
   void _updateScrollAffordance() {
@@ -59,61 +62,84 @@ class _WordListWidgetState extends State<WordListWidget> {
         final words = widget.engine.grid.placedWords;
         // The found/total count changing can change whether the list still
         // overflows its panel, so re-check after this rebuild lays out.
-        WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollAffordance());
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _updateScrollAffordance(),
+        );
         return Stack(
           alignment: Alignment.topCenter,
           children: [
             ListView.builder(
               controller: _controller,
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8 * widget.scale),
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8 * widget.scale,
+              ),
               itemCount: words.length,
               itemBuilder: (context, i) {
                 final placed = words[i];
                 final found = widget.engine.foundWords.contains(placed);
-                return Padding(
-                  padding: EdgeInsets.symmetric(vertical: 5 * widget.scale),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        found ? Icons.check_circle : Icons.circle_outlined,
-                        size: 16 * widget.scale,
-                        color: found ? Colors.greenAccent : Colors.white54,
-                      ),
-                      SizedBox(width: 8 * widget.scale),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              placed.word.upper,
-                              style: TextStyle(
-                                color: found ? Colors.white54 : Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15 * widget.scale,
-                                decoration: found
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                              ),
-                            ),
-                            if (found)
+                // Only found words are tappable — hearing an unfound word
+                // would give it away.
+                return InkWell(
+                  onTap: found
+                      ? () => PronunciationService.instance.speak(
+                          placed.word.word,
+                          onDemand: true,
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 5 * widget.scale),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          found ? Icons.check_circle : Icons.circle_outlined,
+                          size: 16 * widget.scale,
+                          color: found ? Colors.greenAccent : Colors.white54,
+                        ),
+                        SizedBox(width: 8 * widget.scale),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                placed.word.meaningVi,
+                                placed.word.upper,
                                 style: TextStyle(
-                                  color: const Color(0xFFFFD54F),
-                                  fontSize: 12 * widget.scale,
+                                  color: found ? Colors.white54 : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15 * widget.scale,
+                                  decoration: found
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
                                 ),
                               ),
-                          ],
+                              if (found)
+                                Text(
+                                  placed.word.meaningVi,
+                                  style: TextStyle(
+                                    color: const Color(0xFFFFD54F),
+                                    fontSize: 12 * widget.scale,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        if (found)
+                          Icon(
+                            Icons.volume_up,
+                            size: 16 * widget.scale,
+                            color: Colors.white54,
+                          ),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
             if (_canScrollUp) const _ScrollHint(alignment: Alignment.topCenter),
-            if (_canScrollDown) const _ScrollHint(alignment: Alignment.bottomCenter),
+            if (_canScrollDown)
+              const _ScrollHint(alignment: Alignment.bottomCenter),
           ],
         );
       },

@@ -78,7 +78,11 @@ class ReviewService {
     await prefs.setString(_prefsKey, encoded);
   }
 
-  void _applyFound(Map<String, _ReviewEntry> map, VocabWord word, DateTime now) {
+  void _applyFound(
+    Map<String, _ReviewEntry> map,
+    VocabWord word,
+    DateTime now,
+  ) {
     final key = word.upper;
     final existing = map[key];
     if (existing == null) {
@@ -139,9 +143,43 @@ class ReviewService {
         .toList();
   }
 
-  Future<int> dueCount() async {
+  Future<int> dueCount() => dueCountAt(DateTime.now());
+
+  /// How many words will be due at [when] — lets `ReminderService` word a
+  /// notification scheduled for a later evening ("8 từ cần ôn") with the
+  /// count as it'll actually be then, not as it is right now.
+  Future<int> dueCountAt(DateTime when) async {
     final map = await _load();
-    final now = DateTime.now();
-    return map.values.where((e) => !now.isBefore(e.due)).length;
+    return map.values.where((e) => !when.isBefore(e.due)).length;
   }
+
+  /// Every tracked word with its schedule, for "Sổ từ của tôi". Same
+  /// unknown-word skipping as [dueWords].
+  Future<List<WordProgress>> allWords() async {
+    final map = await _load();
+    return [
+      for (final entry in map.entries)
+        if (WordBanks.allByUpper[entry.key] case final word?)
+          WordProgress(word, entry.value.box, entry.value.due),
+    ];
+  }
+}
+
+/// Read-only view of one tracked word's spaced-repetition state.
+class WordProgress {
+  final VocabWord word;
+
+  /// 1 (just found) up to [maxBox] (30-day interval).
+  final int box;
+  final DateTime due;
+
+  const WordProgress(this.word, this.box, this.due);
+
+  static int get maxBox => ReviewService._intervalDays.length;
+
+  /// A word sitting on a week-or-longer interval has survived at least
+  /// three on-schedule reviews — what "Đã thuộc" means in the word book.
+  bool get isMastered => box >= 4;
+
+  bool isDueAt(DateTime when) => !when.isBefore(due);
 }

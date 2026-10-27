@@ -10,6 +10,7 @@ import '../models/vocab_word.dart';
 import '../services/ads_service.dart';
 import '../services/daily_challenge_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/pronunciation_service.dart';
 import '../services/review_service.dart';
 import '../services/score_service.dart';
 import '../services/sound_service.dart';
@@ -69,6 +70,10 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onWordFound(PlacedWord word) {
     _foundWordsThisSession.add(word.word);
+    // Delayed past GridWidget's "correct" chime so the two don't overlap.
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) PronunciationService.instance.speak(word.word.word);
+    });
     if (_engine.isComplete) {
       _onPuzzleComplete();
     }
@@ -225,7 +230,10 @@ class _GameScreenState extends State<GameScreen> {
                           child: Padding(
                             padding: const EdgeInsets.all(10),
                             child: Center(
-                              child: GridWidget(engine: _engine, onWordFound: _onWordFound),
+                              child: GridWidget(
+                                engine: _engine,
+                                onWordFound: _onWordFound,
+                              ),
                             ),
                           ),
                         ),
@@ -236,15 +244,22 @@ class _GameScreenState extends State<GameScreen> {
                             child: SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
-                                onPressed: _engine.hintsRemaining > 0 ? _onHint : null,
-                                icon: Icon(Icons.lightbulb_outline, size: 24 * scale),
+                                onPressed: _engine.hintsRemaining > 0
+                                    ? _onHint
+                                    : null,
+                                icon: Icon(
+                                  Icons.lightbulb_outline,
+                                  size: 24 * scale,
+                                ),
                                 label: Text(
                                   'Gợi ý  (${_engine.hintsRemaining})',
                                   style: TextStyle(fontSize: 14 * scale),
                                 ),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: const Color(0xFF2E7D6B),
-                                  padding: EdgeInsets.symmetric(vertical: 12 * scale),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 12 * scale,
+                                  ),
                                 ),
                               ),
                             ),
@@ -303,7 +318,11 @@ class _Hud extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: onBack,
-                    icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 * scale),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 24 * scale,
+                    ),
                   ),
                   Expanded(
                     child: Text(
@@ -327,9 +346,22 @@ class _Hud extends StatelessWidget {
                       alignment: WrapAlignment.spaceEvenly,
                       spacing: 12,
                       children: [
-                        _Stat(label: 'Từ', value: '${engine.foundWords.length}/${engine.grid.placedWords.length}', scale: scale),
-                        _Stat(label: 'Điểm', value: '${engine.score}', scale: scale),
-                        _Stat(label: 'Giờ', value: _formatTime(engine.elapsedSeconds), scale: scale),
+                        _Stat(
+                          label: 'Từ',
+                          value:
+                              '${engine.foundWords.length}/${engine.grid.placedWords.length}',
+                          scale: scale,
+                        ),
+                        _Stat(
+                          label: 'Điểm',
+                          value: '${engine.score}',
+                          scale: scale,
+                        ),
+                        _Stat(
+                          label: 'Giờ',
+                          value: _formatTime(engine.elapsedSeconds),
+                          scale: scale,
+                        ),
                       ],
                     ),
                   ),

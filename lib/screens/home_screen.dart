@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -6,12 +9,14 @@ import '../models/level.dart';
 import '../services/ads_service.dart';
 import '../services/daily_challenge_service.dart';
 import '../services/leaderboard_service.dart';
+import '../services/reminder_service.dart';
 import '../services/review_service.dart';
 import '../services/score_service.dart';
 import '../services/sound_service.dart';
 import '../widgets/app_background.dart';
 import '../widgets/sound_toggle_button.dart';
 import 'game_screen.dart';
+import 'word_book_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   BannerAd? _banner;
   Map<VocabLevel, int> _bestScores = const {};
   int _dueCount = 0;
+  int _wordCount = 0;
   int _dailyStreak = 0;
   bool _dailyCompletedToday = false;
 
@@ -31,7 +37,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadBanner();
-    _refreshProgress();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await ReminderService.instance.loadEnabled();
+    await _refreshProgress();
   }
 
   void _loadBanner() {
@@ -47,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
       scores[level] = await ScoreService.instance.loadBest(level);
     }
     final dueCount = await ReviewService.instance.dueCount();
+    final wordCount = (await ReviewService.instance.allWords()).length;
     final streak = await DailyChallengeService.instance.currentStreak();
     final completedToday = await DailyChallengeService.instance
         .isCompletedToday();
@@ -54,15 +66,75 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _bestScores = scores;
       _dueCount = dueCount;
+      _wordCount = wordCount;
       _dailyStreak = streak;
       _dailyCompletedToday = completedToday;
     });
+    // Progress just changed (or the app just opened), so tonight's reminder
+    // text may be stale — e.g. today's daily is now done.
+    unawaited(ReminderService.instance.reschedule());
+    if (wordCount > 0) await _maybeOfferReminders();
+  }
+
+  /// One-time in-app ask, shown only once the player has actually played —
+  /// a cold OS permission prompt on first launch tends to get denied, and
+  /// on iOS a denial can't be asked again from the app.
+  Future<void> _maybeOfferReminders() async {
+    if (!await ReminderService.instance.shouldOfferOptIn()) return;
+    if (!mounted) return;
+    await ReminderService.instance.markOptInOffered();
+    if (!mounted) return;
+    final accept = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bật nhắc học hằng ngày?'),
+        content: const Text(
+          'WordHunt sẽ nhắc bạn lúc 19:00 khi có thử thách mới hoặc từ cần ôn tập. '
+          'Bạn có thể tắt bất cứ lúc nào bằng nút chuông ở trang chủ.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Để sau'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Bật nhắc nhở'),
+          ),
+        ],
+      ),
+    );
+    if (accept == true) await _setReminders(true);
+  }
+
+  Future<void> _setReminders(bool enabled) async {
+    SoundService.instance.play(SoundEffect.confirm);
+    final on = await ReminderService.instance.setEnabled(enabled);
+    if (!mounted) return;
+    final message = on
+        ? 'Đã bật nhắc học lúc 19:00 mỗi ngày.'
+        : enabled
+        ? 'Chưa được cấp quyền thông báo — hãy bật trong Cài đặt của máy.'
+        : 'Đã tắt nhắc học hằng ngày.';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openWordBook() async {
+    SoundService.instance.play(SoundEffect.confirm);
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const WordBookScreen()));
+    _refreshProgress();
   }
 
   Future<void> _openLevel(VocabLevel level) async {
     SoundService.instance.play(SoundEffect.confirm);
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => GameScreen(session: GameSession.level(level))),
+      MaterialPageRoute(
+        builder: (_) => GameScreen(session: GameSession.level(level)),
+      ),
     );
     _refreshProgress();
   }
@@ -74,7 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (words.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Chưa có từ nào cần ôn tập — chơi thêm vài cấp độ nhé!'),
+          content: Text(
+            'Chưa có từ nào cần ôn tập — chơi thêm vài cấp độ nhé!',
+          ),
         ),
       );
       return;
@@ -95,12 +169,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // player's progress having been lost, even though the streak itself
     // was unaffected underneath. A daily challenge only makes sense as a
     // one-shot per day, so block re-entry instead of quietly replaying it.
-    final completedToday = await DailyChallengeService.instance.isCompletedToday();
+    final completedToday = await DailyChallengeService.instance
+        .isCompletedToday();
     if (!mounted) return;
     if (completedToday) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bạn đã hoàn thành thử thách hôm nay rồi — quay lại vào ngày mai nhé! 🔥'),
+          content: Text(
+            'Bạn đã hoàn thành thử thách hôm nay rồi — quay lại vào ngày mai nhé! 🔥',
+          ),
         ),
       );
       return;
@@ -160,7 +237,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       Column(
                         children: [
                           const SizedBox(height: 16),
-                          Image.asset('assets/title/title.png', width: 320 * scale),
+                          Image.asset(
+                            'assets/title/title.png',
+                            width: 320 * scale,
+                          ),
                           const SizedBox(height: 8),
                           Expanded(
                             child: ListView(
@@ -179,7 +259,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         subtitle: _dueCount > 0
                                             ? '$_dueCount từ cần ôn'
                                             : 'Chưa có từ cần ôn',
-                                        badge: _dueCount > 0 ? '$_dueCount' : null,
+                                        badge: _dueCount > 0
+                                            ? '$_dueCount'
+                                            : null,
                                         scale: scale,
                                         onTap: _openReview,
                                       ),
@@ -206,14 +288,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 8 * scale),
+                                SizedBox(height: 10 * scale),
+                                _ActionCard(
+                                  icon: Icons.menu_book,
+                                  iconColor: const Color(0xFF4CC38A),
+                                  title: 'Sổ từ của tôi',
+                                  subtitle: _wordCount > 0
+                                      ? '$_wordCount từ đã học · nghe phát âm, xem tiến độ'
+                                      : 'Từ bạn tìm được sẽ được lưu ở đây',
+                                  scale: scale,
+                                  onTap: _openWordBook,
+                                ),
+                                SizedBox(height: 10 * scale),
                                 for (final level in VocabLevel.values)
                                   _LevelCard(
                                     level: level,
                                     bestScore: _bestScores[level] ?? 0,
                                     scale: scale,
                                     onTap: () => _openLevel(level),
-                                    onLeaderboardTap: () => _openLeaderboard(level),
+                                    onLeaderboardTap: () =>
+                                        _openLeaderboard(level),
                                   ),
                               ],
                             ),
@@ -227,6 +321,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 8),
                         ],
                       ),
+                      // Reminders are mobile-only (no-op on web).
+                      if (!kIsWeb)
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable:
+                                ReminderService.instance.enabledNotifier,
+                            builder: (context, on, _) => IconButton(
+                              icon: Icon(
+                                on
+                                    ? Icons.notifications_active
+                                    : Icons.notifications_off_outlined,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => _setReminders(!on),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: on ? 'Tắt nhắc học' : 'Bật nhắc học',
+                            ),
+                          ),
+                        ),
                       const Positioned(
                         top: 4,
                         right: 4,
@@ -426,7 +542,11 @@ class _LevelCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Colors.white54, size: 24 * scale),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Colors.white54,
+                      size: 24 * scale,
+                    ),
                   ],
                 ),
               ),
@@ -434,7 +554,11 @@ class _LevelCard extends StatelessWidget {
           ),
           IconButton(
             onPressed: onLeaderboardTap,
-            icon: Icon(Icons.leaderboard, color: Colors.amberAccent, size: 24 * scale),
+            icon: Icon(
+              Icons.leaderboard,
+              color: Colors.amberAccent,
+              size: 24 * scale,
+            ),
             tooltip: 'Bảng xếp hạng ${level.label}',
           ),
         ],

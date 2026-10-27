@@ -90,10 +90,7 @@ class GridGenerator {
 
     final letters = List.generate(
       size,
-      (r) => List.generate(
-        size,
-        (c) => grid[r][c] ?? _randomLetter(rng),
-      ),
+      (r) => List.generate(size, (c) => grid[r][c] ?? _randomLetter(rng)),
     );
 
     return WordSearchGrid(size, letters, placed);

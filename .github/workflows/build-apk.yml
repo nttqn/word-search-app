@@ -66,6 +66,11 @@ jobs:
           fi
           cat "$MANIFEST"
 
+      # Notifications + text-to-speech: manifest entries, desugaring, and
+      # the notification icon. See the script's header for each one's why.
+      - name: Patch Android project (reminders + pronunciation)
+        run: node tool/patch_android_extras.js
+
       # google_mobile_ads requires minSdk 24+ (and a recent compileSdk).
       # flutter create defaults these to `flutter.minSdkVersion` /
       # `flutter.compileSdkVersion`, which can lag behind what current

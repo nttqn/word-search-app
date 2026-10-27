@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification icon is only referenced by name from Dart
+     (ReminderService), which resource shrinking can't see — without this,
+     isShrinkResources strips it and reminders silently never show. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_wordhunt" />

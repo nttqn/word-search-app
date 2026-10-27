@@ -31,7 +31,11 @@ class GridWidget extends StatefulWidget {
   final WordSearchEngine engine;
   final void Function(PlacedWord word) onWordFound;
 
-  const GridWidget({super.key, required this.engine, required this.onWordFound});
+  const GridWidget({
+    super.key,
+    required this.engine,
+    required this.onWordFound,
+  });
 
   @override
   State<GridWidget> createState() => _GridWidgetState();
@@ -57,7 +61,8 @@ class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
             _cellSize = side / grid.size;
             final wordColors = <PlacedWord, Color>{
               for (var i = 0; i < grid.placedWords.length; i++)
-                grid.placedWords[i]: _foundWordColors[i % _foundWordColors.length],
+                grid.placedWords[i]:
+                    _foundWordColors[i % _foundWordColors.length],
             };
             final foundCellColor = <Cell, Color>{};
             for (final w in widget.engine.foundWords) {
@@ -66,7 +71,8 @@ class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
                 foundCellColor[c] = color;
               }
             }
-            final hintCells = widget.engine.highlightedHintCells?.toSet() ?? const {};
+            final hintCells =
+                widget.engine.highlightedHintCells?.toSet() ?? const {};
             final dragCells = _dragPath.toSet();
 
             return Listener(
@@ -214,7 +220,11 @@ class _GridWidgetState extends State<GridWidget> with TickerProviderStateMixin {
                   fontSize: 20,
                   color: Color(0xFFFFD54F),
                   shadows: [
-                    Shadow(color: Colors.black87, blurRadius: 3, offset: Offset(1, 1)),
+                    Shadow(
+                      color: Colors.black87,
+                      blurRadius: 3,
+                      offset: Offset(1, 1),
+                    ),
                     Shadow(color: Colors.black87, blurRadius: 3),
                   ],
                 ),

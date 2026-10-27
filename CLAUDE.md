@@ -849,3 +849,41 @@ with no committed lockfile, a transitive plugin release between builds
 is a real, invisible code change. Check a suspect package's release
 dates against build dates with
 `curl -s https://pub.dev/api/packages/<name>` (versions[].published).
+
+## v1.1.0: pronunciation, word book, daily reminders (2026-10-27)
+
+- **Pronunciation** (`lib/services/pronunciation_service.dart`, `flutter_tts`):
+  device TTS, `en-US`, rate 0.42. Auto-speaks a word ~350ms after it's found
+  (after the "correct" chime) and respects the sound toggle; tapping a found
+  word in the in-game list or the speaker in the word book speaks it even
+  when muted (`onDemand: true`). Words are lowercased first — banks store
+  them uppercase and engines spell all-caps words like acronyms. On iOS it
+  sets a shared `playback` + `mixWithOthers` session so the silent switch
+  doesn't mute it and it doesn't cut off flame_audio. Android 11+ needs the
+  `TTS_SERVICE` `<queries>` entry (added by `tool/patch_android_extras.js`).
+- **Word book** (`lib/screens/word_book_screen.dart`): read-only view over
+  `ReviewService.allWords()` — search (English or Vietnamese), filters
+  Tất cả / Cần ôn / Đã thuộc (`WordProgress.isMastered` = box ≥ 4, a 7-day+
+  interval), box shown as 6 dots.
+- **Daily reminders** (`lib/services/reminder_service.dart`,
+  `flutter_local_notifications` pinned 22.3.1): off until opted in. Home asks
+  once (in-app dialog first, then the OS prompt) after the player has at
+  least one tracked word; the bell top-left toggles it later (hidden on web).
+  Every home refresh cancels and reschedules one-shot 19:00 notifications for
+  tonight + the next 3 evenings, with text from `contentFor(streak,
+  dueCount)` computed for that evening (`ReviewService.dueCountAt`). Tonight
+  is skipped if today's daily is done. The streak only appears on the first
+  evening the next daily is owed. It's scheduled as an absolute instant in
+  `tz.UTC` (no repeat matching), so no timezone plugin is needed. Android
+  uses inexact mode (no exact-alarm permission).
+- **Android CI wiring** is all in `tool/patch_android_extras.js` (one
+  workflow step): POST_NOTIFICATIONS + RECEIVE_BOOT_COMPLETED, the plugin's
+  two receivers (required since plugin v16), the TTS `<queries>` intent,
+  core library desugaring, and copying `tool/android-res/` (monochrome
+  `ic_stat_wordhunt` vector + `raw/keep.xml` so `isShrinkResources` doesn't
+  strip an icon only referenced by name from Dart). It's in a node script
+  because multi-line XML in sed inside YAML was error-prone.
+- **Not yet verified on a real device**: notification delivery (especially
+  on Xiaomi/MIUI, which may kill scheduled alarms without autostart
+  permission) and TTS availability. If TTS is silent, check that the phone
+  has an English voice installed in its TTS engine settings.

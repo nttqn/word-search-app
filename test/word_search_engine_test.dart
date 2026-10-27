@@ -45,26 +45,32 @@ void main() {
       expect(engine.foundWords, contains(target));
     });
 
-    test('trySelect returns null and changes nothing for a path that spells no word', () {
-      final bogusPath = [const Cell(0, 0)];
-      final match = engine.trySelect(bogusPath);
+    test(
+      'trySelect returns null and changes nothing for a path that spells no word',
+      () {
+        final bogusPath = [const Cell(0, 0)];
+        final match = engine.trySelect(bogusPath);
 
-      expect(match, isNull);
-      expect(engine.foundWords, isEmpty);
-      expect(engine.score, 0);
-    });
+        expect(match, isNull);
+        expect(engine.foundWords, isEmpty);
+        expect(engine.score, 0);
+      },
+    );
 
-    test('finding every word marks the puzzle complete and adds a time bonus', () {
-      for (final placed in List.of(engine.grid.placedWords)) {
-        engine.trySelect(placed.cells);
-      }
+    test(
+      'finding every word marks the puzzle complete and adds a time bonus',
+      () {
+        for (final placed in List.of(engine.grid.placedWords)) {
+          engine.trySelect(placed.cells);
+        }
 
-      expect(engine.isComplete, isTrue);
-      final baseScore = engine.grid.placedWords
-          .map((w) => w.word.upper.length * 10)
-          .reduce((a, b) => a + b);
-      expect(engine.score, greaterThanOrEqualTo(baseScore));
-    });
+        expect(engine.isComplete, isTrue);
+        final baseScore = engine.grid.placedWords
+            .map((w) => w.word.upper.length * 10)
+            .reduce((a, b) => a + b);
+        expect(engine.score, greaterThanOrEqualTo(baseScore));
+      },
+    );
 
     test('useHint reveals an unfound word and consumes one hint', () {
       final before = engine.hintsRemaining;
