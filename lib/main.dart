@@ -17,7 +17,10 @@ Future<void> main() async {
 }
 
 class WordSearchApp extends StatelessWidget {
-  const WordSearchApp({super.key});
+  /// Overridable only for lib/shots.dart's store screenshots.
+  final Widget home;
+
+  const WordSearchApp({super.key, this.home = const HomeScreen()});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +33,7 @@ class WordSearchApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0B2436),
       ),
-      home: const HomeScreen(),
+      home: home,
     );
   }
 }

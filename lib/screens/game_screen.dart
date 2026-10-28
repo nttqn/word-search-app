@@ -21,7 +21,14 @@ import '../widgets/word_list_widget.dart';
 
 class GameScreen extends StatefulWidget {
   final GameSession session;
-  const GameScreen({super.key, required this.session});
+
+  /// Store-screenshot hook (lib/shots.dart): runs right after the puzzle is
+  /// generated, to pre-find words, use a hint, etc. If it leaves the puzzle
+  /// complete, the completion flow runs as if the last word was just found.
+  @visibleForTesting
+  final void Function(WordSearchEngine engine)? debugSetup;
+
+  const GameScreen({super.key, required this.session, this.debugSetup});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -49,6 +56,14 @@ class _GameScreenState extends State<GameScreen> {
       bank: widget.session.bank,
       random: widget.session.random,
     )..start();
+    if (widget.debugSetup case final setup?) {
+      setup(_engine);
+      if (_engine.isComplete) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _onPuzzleComplete(),
+        );
+      }
+    }
     _loadBanner();
     unawaited(LeaderboardService.signIn());
   }

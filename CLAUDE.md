@@ -887,3 +887,12 @@ dates against build dates with
   on Xiaomi/MIUI, which may kill scheduled alarms without autostart
   permission) and TTS availability. If TTS is silent, check that the phone
   has an English voice installed in its TTS engine settings.
+
+## Store screenshots
+
+`store/<device>/NN-name.png` (phone, tablet-7in, tablet-10in,
+iphone-6.3in, ipad-13in; 8 scenes each, RGB with no alpha because App Store
+Connect rejects alpha). Scenes are fixed in `lib/shots.dart`: seeded prefs
+via `setMockInitialValues`, seeded puzzles, and `GameScreen.debugSetup` to
+pre-find words. Shoot with `tool/store_shots.js` (usage in its header).
+Rebuild them after any visible UI change.
